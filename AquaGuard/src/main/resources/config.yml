@@ -7,5 +7,6 @@ checks:
     enabled: true
     max-placements-per-second: 40
 discord:
-  webhook-url: ""
+  bot-token: ""
+  channel-id: ""
   alert-cooldown-seconds: 15

@@ -19,6 +19,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
@@ -51,13 +53,14 @@ public final class AquaGuardPlugin extends JavaPlugin implements Listener {
     private final Map<String, Long> lastAlerts = new HashMap<>();
     private HttpClient httpClient;
     private ExecutorService discordExecutor;
-    private URI webhookUri;
+    private String discordBotToken;
+    private String discordChannelId;
     private BukkitTask flightTask;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        configureWebhook();
+        configureDiscordBot();
         discordExecutor = Executors.newSingleThreadExecutor(task -> {
             Thread thread = new Thread(task, "AquaGuard-Discord");
             thread.setDaemon(true);
@@ -87,6 +90,20 @@ public final class AquaGuardPlugin extends JavaPlugin implements Listener {
         event.setCancelled(true);
         player.setFlying(false);
         alert(player, "FLIGHT", "Unauthorized flight toggle was blocked.");
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onGameModeChange(PlayerGameModeChangeEvent event) {
+        Player player = event.getPlayer();
+        if (event.getNewGameMode() != GameMode.CREATIVE || player.isOp()) return;
+        event.setCancelled(true);
+        if (player.getGameMode() == GameMode.CREATIVE) player.setGameMode(GameMode.SURVIVAL);
+        alert(player, "CREATIVE_MODE", "Creative mode was blocked for a non-operator; survival mode enforced.");
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        enforceSurvivalForNonOperators(event.getPlayer());
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -130,6 +147,8 @@ public final class AquaGuardPlugin extends JavaPlugin implements Listener {
     private void inspectFlight() {
         int requiredSamples = Math.max(2, getConfig().getInt("checks.flight.hover-samples", 8));
         for (Player player : Bukkit.getOnlinePlayers()) {
+            if (enforceSurvivalForNonOperators(player)) continue;
+            if (!getConfig().getBoolean("checks.flight.enabled", true)) continue;
             if (isExempt(player)) {
                 MovementState state = movementStates.get(player.getUniqueId());
                 if (state != null) state.hoverSamples = 0;
@@ -160,6 +179,15 @@ public final class AquaGuardPlugin extends JavaPlugin implements Listener {
             }
             state.hoverSamples = 0;
         }
+    }
+
+    private boolean enforceSurvivalForNonOperators(Player player) {
+        if (player.isOp() || player.getGameMode() != GameMode.CREATIVE) return false;
+        player.setGameMode(GameMode.SURVIVAL);
+        player.setFlying(false);
+        player.setFallDistance(0);
+        alert(player, "CREATIVE_MODE", "Creative mode was blocked for a non-operator; returned to survival.");
+        return true;
     }
 
     private boolean isExempt(Player player) {
@@ -197,55 +225,47 @@ public final class AquaGuardPlugin extends JavaPlugin implements Listener {
         sendDiscordAlert(player, check, details);
     }
 
-    private void configureWebhook() {
-        String configuredUrl = getConfig().getString("discord.webhook-url", "").trim();
-        if (configuredUrl.isEmpty()) return;
-        try {
-            URI candidate = URI.create(configuredUrl);
-            String host = candidate.getHost();
-            if (!"https".equalsIgnoreCase(candidate.getScheme()) || host == null
-                || !(host.equalsIgnoreCase("discord.com") || host.equalsIgnoreCase("discordapp.com"))
-                || !candidate.getPath().startsWith("/api/webhooks/")) {
-                getLogger().warning("Discord webhook URL is not a supported HTTPS Discord webhook; alerts are disabled.");
-                return;
-            }
-            webhookUri = candidate;
-        } catch (IllegalArgumentException exception) {
-            getLogger().warning("Discord webhook URL is invalid; alerts are disabled.");
+    private void configureDiscordBot() {
+        String configuredToken = getConfig().getString("discord.bot-token", "").trim();
+        String configuredChannel = getConfig().getString("discord.channel-id", "").trim();
+        if (configuredToken.isEmpty() && configuredChannel.isEmpty()) return;
+        if (configuredToken.isEmpty() || !configuredChannel.matches("[0-9]{17,20}")) {
+            getLogger().warning("Discord bot token or channel ID is missing/invalid; Discord alerts are disabled.");
+            return;
         }
+        discordBotToken = configuredToken;
+        discordChannelId = configuredChannel;
     }
 
     private void sendDiscordAlert(Player player, String check, String details) {
-        if (webhookUri == null || httpClient == null || discordExecutor.isShutdown()) return;
+        if (discordBotToken == null || discordChannelId == null || httpClient == null || discordExecutor.isShutdown()) return;
         String clientBrand = player.getClientBrandName();
         if (clientBrand == null || clientBrand.isBlank()) clientBrand = "unknown";
-        String payload = "{\"allowed_mentions\":{\"parse\":[]},\"embeds\":[{"
-            + "\"title\":\"AquaGuard prevented suspicious activity\","
-            + "\"color\":16753920,\"fields\":["
-            + field("Player", player.getName()) + ","
-            + field("Detected check", check) + ","
-            + field("Client brand (reported, unverified)", clientBrand) + ","
-            + field("Action", details) + "],"
-            + "\"footer\":{\"text\":\"No ban was issued. Client brand is self-reported and may be spoofed.\"}}]}";
-        HttpRequest request = HttpRequest.newBuilder(webhookUri)
+        String content = "AquaGuard prevented suspicious activity\n"
+            + "Player: " + player.getName() + "\n"
+            + "Detected check: " + check + "\n"
+            + "Client brand (reported, unverified): " + clientBrand + "\n"
+            + "Action: " + details + "\n"
+            + "No ban was issued. Client brand is self-reported and may be spoofed.";
+        String payload = "{\"content\":\"" + escape(limit(content, 1800))
+            + "\",\"allowed_mentions\":{\"parse\":[]}}";
+        URI messagesUri = URI.create("https://discord.com/api/v10/channels/" + discordChannelId + "/messages");
+        HttpRequest request = HttpRequest.newBuilder(messagesUri)
             .timeout(Duration.ofSeconds(8))
             .header("Content-Type", "application/json")
+            .header("Authorization", "Bot " + discordBotToken)
             .POST(HttpRequest.BodyPublishers.ofString(payload))
             .build();
         httpClient.sendAsync(request, HttpResponse.BodyHandlers.discarding())
             .thenAccept(response -> {
                 if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                    getLogger().warning("Discord webhook returned HTTP " + response.statusCode() + ".");
+                    getLogger().warning("Discord bot API returned HTTP " + response.statusCode() + ".");
                 }
             })
             .exceptionally(error -> {
                 getLogger().warning("Could not send Discord alert: " + error.getClass().getSimpleName());
                 return null;
             });
-    }
-
-    private String field(String name, String value) {
-        return "{\"name\":\"" + escape(name) + "\",\"value\":\"" + escape(limit(value, 900)) + "\",\"inline\":false}";
     }
 
     private String escape(String value) {
