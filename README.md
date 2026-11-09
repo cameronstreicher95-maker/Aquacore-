@@ -32,4 +32,8 @@ All command messages use the Aqua SMP prefix. Teleports use a configurable count
 
 ## Separate Anti-Cheat Plugin
 
-The standalone [AquaGuard plugin](AquaGuard/README.md) provides conservative server-side flight and rapid-placement checks, Discord webhook alerts, and a Paper Anti-Xray configuration template. Build it from the repository root with `gradle -p AquaGuard build`.
+The standalone [AquaGuard plugin](AquaGuard/README.md) provides conservative server-side flight and rapid-placement checks, Discord bot alerts, and a Paper Anti-Xray configuration template. Build it from the repository root with `gradle -p AquaGuard build`.
+
+## Release Versioning
+
+Each published update uses a new version and GitHub tag, such as `v1.0.1`; existing releases and their assets are kept unchanged. Individual plugin jars use their own version numbers.

@@ -1,5 +1,5 @@
 name: AquaGuard
-version: 1.0.0
+version: 1.0.1
 main: dev.aquaguard.AquaGuardPlugin
 api-version: '26.3'
 permissions:

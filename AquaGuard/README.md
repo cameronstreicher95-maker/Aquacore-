@@ -6,7 +6,7 @@ AquaGuard is a separate Paper plugin for server-side cheat prevention. It does n
 
 - Java 25 and Gradle are required.
 - Run `gradle -p AquaGuard build` from the repository root.
-- Install `AquaGuard/build/libs/AquaGuard-1.0.0.jar` in the Paper server's `plugins/` directory, then restart.
+- Install `AquaGuard/build/libs/AquaGuard-1.0.1.jar` in the Paper server's `plugins/` directory, then restart.
 - Discord alerts are optional. Create a Discord bot with permission to send messages in the target channel, then set `discord.bot-token` and `discord.channel-id` in `plugins/AquaGuard/config.yml` after the first startup. Keep that file private because the bot token is a secret. Do not paste the token into chat or commit it to the repository.
 
 ## Anti-xray
