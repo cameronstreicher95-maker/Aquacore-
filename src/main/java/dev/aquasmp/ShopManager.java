@@ -80,7 +80,7 @@ public final class ShopManager implements Listener, CommandExecutor {
     public void openShop(Player player) {
         MenuHolder holder = create(MenuType.ROOT, null, 1, 0, 27, "Aqua SMP Shop");
         fill(holder.inventory);
-        int[] slots = {10, 12, 14, 16};
+        int[] slots = {10, 12, 14, 16, 22};
         ShopCatalog.Section[] sections = ShopCatalog.Section.values();
         for (int index = 0; index < sections.length; index++) {
             ShopCatalog.Section section = sections[index];
@@ -90,7 +90,7 @@ public final class ShopManager implements Listener, CommandExecutor {
                 : products.get(section).size() + " items", NamedTextColor.GRAY), line("Click to browse", NamedTextColor.WHITE)));
             holder.inventory.setItem(slots[index], icon);
         }
-        holder.inventory.setItem(22, item(Material.PRISMARINE_SHARD, "Aqua SMP", NamedTextColor.AQUA));
+        holder.inventory.setItem(4, item(Material.PRISMARINE_SHARD, "Aqua SMP", NamedTextColor.AQUA));
         holder.inventory.setItem(26, item(Material.BARRIER, "Close shop", NamedTextColor.RED));
         player.openInventory(holder.inventory);
     }
@@ -158,7 +158,7 @@ public final class ShopManager implements Listener, CommandExecutor {
                     return;
                 }
                 ShopCatalog.Section[] sections = ShopCatalog.Section.values();
-                int[] sectionSlots = {10, 12, 14, 16};
+                int[] sectionSlots = {10, 12, 14, 16, 22};
                 for (int index = 0; index < sectionSlots.length; index++) {
                     if (slot == sectionSlots[index]) openCategory(player, sections[index], 0);
                 }
@@ -449,6 +449,7 @@ public final class ShopManager implements Listener, CommandExecutor {
             case GEAR -> 120 + product.index() * 22.0;
             case NATURE -> 8 + product.index() * 2.0;
             case DECOR -> 14 + product.index() * 3.0;
+            case REDSTONE -> 12 + product.index() * 2.0;
             case SHARDS -> 0;
         };
         return Math.max(1, base * plugin.getConfig().getDouble("shop.price-multiplier", 1.0));
