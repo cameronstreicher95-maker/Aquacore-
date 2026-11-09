@@ -45,6 +45,8 @@ public final class ShopManager implements Listener, CommandExecutor {
         private final ShopCatalog.Product product;
         private final int page;
         private int amount;
+        private ShopCatalog.NatureSubcategory natureSubcategory;
+        private int parentPage;
         private Inventory inventory;
 
         private MenuHolder(MenuType type, ShopCatalog.Product product, int amount, int page) {
@@ -89,6 +91,7 @@ public final class ShopManager implements Listener, CommandExecutor {
             holder.inventory.setItem(slots[index], icon);
         }
         holder.inventory.setItem(22, item(Material.PRISMARINE_SHARD, "Aqua SMP", NamedTextColor.AQUA));
+        holder.inventory.setItem(26, item(Material.BARRIER, "Close shop", NamedTextColor.RED));
         player.openInventory(holder.inventory);
     }
 
@@ -150,6 +153,10 @@ public final class ShopManager implements Listener, CommandExecutor {
         if (slot < 0 || slot >= holder.inventory.getSize()) return;
         switch (holder.type) {
             case ROOT -> {
+                if (slot == 26) {
+                    player.closeInventory();
+                    return;
+                }
                 ShopCatalog.Section[] sections = ShopCatalog.Section.values();
                 int[] sectionSlots = {10, 12, 14, 16};
                 for (int index = 0; index < sectionSlots.length; index++) {
@@ -208,14 +215,58 @@ public final class ShopManager implements Listener, CommandExecutor {
 
     private void handleCategoryClick(Player player, MenuHolder holder, int slot) {
         if (slot == 45) {
-            if (holder.page == 0) openShop(player);
-            else openCategory(player, holder.product.section(), holder.page - 1);
-        } else if (slot == 53 && (holder.page + 1) * 45 < products.get(holder.product.section()).size()) {
-            openCategory(player, holder.product.section(), holder.page + 1);
+            if (holder.natureSubcategory != null) openCategory(player, ShopCatalog.Section.NATURE, holder.parentPage);
+            else openShop(player);
+            return;
+        }
+        if (slot == 51) {
+            player.closeInventory();
+            return;
+        }
+
+        if (holder.natureSubcategory != null) {
+            if (slot < 25) {
+                List<ShopCatalog.Product> natureItems = ShopCatalog.products(holder.natureSubcategory);
+                if (slot < natureItems.size()) {
+                    openConfirm(player, natureItems.get(slot), 1, 0, holder.natureSubcategory, holder.parentPage);
+                }
+            }
+            return;
+        }
+
+        ShopCatalog.Section section = holder.product.section();
+        if (section == ShopCatalog.Section.NATURE) {
+            switch (slot) {
+                case 46 -> openNatureSubcategory(player, ShopCatalog.NatureSubcategory.OVERWORLD, holder.page);
+                case 47 -> openNatureSubcategory(player, ShopCatalog.NatureSubcategory.NETHER, holder.page);
+                case 48 -> openNatureSubcategory(player, ShopCatalog.NatureSubcategory.END, holder.page);
+                case 50 -> { if (holder.page > 0) openCategory(player, section, holder.page - 1); }
+                case 53 -> {
+                    if ((holder.page + 1) * 36 < products.get(section).size()) openCategory(player, section, holder.page + 1);
+                }
+                default -> {
+                    if (slot < 36) {
+                        int index = holder.page * 36 + slot;
+                        List<ShopCatalog.Product> sectionItems = products.get(section);
+                        if (index < sectionItems.size()) {
+                            openConfirm(player, sectionItems.get(index), 1, holder.page, null, 0);
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
+        List<ShopCatalog.Product> sectionItems = products.get(section);
+        if (slot == 47 && holder.page > 0) {
+            openCategory(player, section, holder.page - 1);
+        } else if (slot == 53 && (holder.page + 1) * 45 < sectionItems.size()) {
+            openCategory(player, section, holder.page + 1);
         } else if (slot < 45) {
             int index = holder.page * 45 + slot;
-            List<ShopCatalog.Product> sectionItems = products.get(holder.product.section());
-            if (index >= 0 && index < sectionItems.size()) openConfirm(player, sectionItems.get(index), 1);
+            if (index < sectionItems.size()) {
+                openConfirm(player, sectionItems.get(index), 1, holder.page, null, 0);
+            }
         }
     }
 
@@ -229,7 +280,11 @@ public final class ShopManager implements Listener, CommandExecutor {
             case 28 -> purchase(player, holder.product, holder.amount, PurchaseMode.INVENTORY);
             case 30 -> purchase(player, holder.product, holder.amount, PurchaseMode.DROP);
             case 32 -> purchase(player, holder.product, holder.amount, PurchaseMode.FILL);
-            case 49 -> openCategory(player, holder.product.section(), 0);
+            case 49 -> {
+                if (holder.natureSubcategory != null) openNatureSubcategory(player, holder.natureSubcategory, holder.parentPage);
+                else openCategory(player, holder.product.section(), holder.page);
+            }
+            case 53 -> player.closeInventory();
             default -> { }
         }
         if (player.getOpenInventory().getTopInventory().getHolder(false) == holder) refreshConfirm(holder, player);
@@ -240,8 +295,9 @@ public final class ShopManager implements Listener, CommandExecutor {
             page, 54, "Aqua SMP: " + section.label());
         fill(holder.inventory);
         List<ShopCatalog.Product> sectionItems = products.get(section);
-        int start = page * 45;
-        for (int index = 0; index < 45 && start + index < sectionItems.size(); index++) {
+        int pageSize = section == ShopCatalog.Section.NATURE ? 36 : 45;
+        int start = page * pageSize;
+        for (int index = 0; index < pageSize && start + index < sectionItems.size(); index++) {
             ShopCatalog.Product product = sectionItems.get(start + index);
             ItemStack icon = createProductItem(product);
             setLore(icon, List.of(
@@ -251,12 +307,45 @@ public final class ShopManager implements Listener, CommandExecutor {
         }
         holder.inventory.setItem(45, item(Material.ARROW, "Back", NamedTextColor.WHITE));
         holder.inventory.setItem(49, item(Material.PRISMARINE_SHARD, "Page " + (page + 1), NamedTextColor.AQUA));
-        if (start + 45 < sectionItems.size()) holder.inventory.setItem(53, item(Material.ARROW, "Next page", NamedTextColor.WHITE));
+        holder.inventory.setItem(51, item(Material.BARRIER, "Close", NamedTextColor.RED));
+        if (section == ShopCatalog.Section.NATURE) {
+            holder.inventory.setItem(46, item(Material.MOSS_BLOCK, "Overworld blocks", NamedTextColor.GREEN));
+            holder.inventory.setItem(47, item(Material.NETHERRACK, "Nether blocks", NamedTextColor.RED));
+            holder.inventory.setItem(48, item(Material.END_STONE, "End blocks", NamedTextColor.LIGHT_PURPLE));
+            if (page > 0) holder.inventory.setItem(50, item(Material.ARROW, "Previous page", NamedTextColor.WHITE));
+        } else if (page > 0) {
+            holder.inventory.setItem(47, item(Material.ARROW, "Previous page", NamedTextColor.WHITE));
+        }
+        if (start + pageSize < sectionItems.size()) holder.inventory.setItem(53, item(Material.ARROW, "Next page", NamedTextColor.WHITE));
         player.openInventory(holder.inventory);
     }
 
-    private void openConfirm(Player player, ShopCatalog.Product product, int amount) {
-        MenuHolder holder = create(MenuType.CONFIRM, product, amount, 0, 54, "Aqua SMP: Confirm Purchase");
+    private void openNatureSubcategory(Player player, ShopCatalog.NatureSubcategory subcategory, int parentPage) {
+        MenuHolder holder = create(MenuType.CATEGORY,
+            new ShopCatalog.Product("nature_subcategory", ShopCatalog.Section.NATURE, subcategory.icon(), 0),
+            1, 0, 54, "Aqua SMP: " + subcategory.label());
+        holder.natureSubcategory = subcategory;
+        holder.parentPage = parentPage;
+        fill(holder.inventory);
+        List<ShopCatalog.Product> sectionItems = ShopCatalog.products(subcategory);
+        for (int index = 0; index < sectionItems.size(); index++) {
+            ShopCatalog.Product product = sectionItems.get(index);
+            ItemStack icon = createProductItem(product);
+            setLore(icon, List.of(line(priceText(product), NamedTextColor.GOLD),
+                line("Click to select quantity", NamedTextColor.GRAY)));
+            holder.inventory.setItem(index, icon);
+        }
+        holder.inventory.setItem(45, item(Material.ARROW, "Back to Nature", NamedTextColor.WHITE));
+        holder.inventory.setItem(49, item(subcategory.icon(), subcategory.label() + " blocks", NamedTextColor.AQUA));
+        holder.inventory.setItem(51, item(Material.BARRIER, "Close", NamedTextColor.RED));
+        player.openInventory(holder.inventory);
+    }
+
+    private void openConfirm(Player player, ShopCatalog.Product product, int amount, int sourcePage,
+        ShopCatalog.NatureSubcategory natureSubcategory, int parentPage) {
+        MenuHolder holder = create(MenuType.CONFIRM, product, amount, sourcePage, 54, "Aqua SMP: Confirm Purchase");
+        holder.natureSubcategory = natureSubcategory;
+        holder.parentPage = parentPage;
         fill(holder.inventory);
         holder.inventory.setItem(13, createProductItem(product));
         holder.inventory.setItem(10, item(Material.REDSTONE, "-10", NamedTextColor.RED));
@@ -268,6 +357,7 @@ public final class ShopManager implements Listener, CommandExecutor {
         holder.inventory.setItem(30, item(Material.DROPPER, "Buy and drop", NamedTextColor.AQUA));
         holder.inventory.setItem(32, item(Material.CHEST, "Fill inventory", NamedTextColor.GOLD));
         holder.inventory.setItem(49, item(Material.ARROW, "Back to shop", NamedTextColor.WHITE));
+        holder.inventory.setItem(53, item(Material.BARRIER, "Close", NamedTextColor.RED));
         refreshConfirm(holder, player);
         player.openInventory(holder.inventory);
     }
@@ -350,6 +440,11 @@ public final class ShopManager implements Listener, CommandExecutor {
             case "AQUA_3X3_PICKAXE" -> 48;
             case "AQUA_TREE_FELLER" -> 32;
             case "AQUA_SELL_AXE" -> 64;
+            case "AQUA_TIDEBREAKER", "AQUA_REAPER_SCYTHE" -> 80;
+            case "AQUA_TIDE_HELMET", "AQUA_TIDE_CHESTPLATE", "AQUA_TIDE_LEGGINGS", "AQUA_TIDE_BOOTS" -> 96;
+            case "AQUA_TRIDENT" -> 72;
+            case "AQUA_WAVE_BOW" -> 56;
+            case "AQUA_OCEAN_SHIELD" -> 32;
             default -> 40;
         };
         if (isDiamondArmor(product.id())) {
@@ -441,6 +536,14 @@ public final class ShopManager implements Listener, CommandExecutor {
             case "AQUA_TREE_FELLER" -> { enchant(stack, "efficiency", 5); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
             case "AQUA_SELL_AXE" -> { enchant(stack, "efficiency", 5); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
             case "AQUA_TIDEBREAKER" -> { enchant(stack, "sharpness", 5); enchant(stack, "looting", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
+            case "AQUA_TIDE_HELMET" -> { enchant(stack, "protection", 4); enchant(stack, "respiration", 3); enchant(stack, "aqua_affinity", 1); enchant(stack, "thorns", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
+            case "AQUA_TIDE_CHESTPLATE" -> { enchant(stack, "protection", 4); enchant(stack, "thorns", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
+            case "AQUA_TIDE_LEGGINGS" -> { enchant(stack, "protection", 4); enchant(stack, "thorns", 3); enchant(stack, "swift_sneak", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
+            case "AQUA_TIDE_BOOTS" -> { enchant(stack, "protection", 4); enchant(stack, "feather_falling", 4); enchant(stack, "depth_strider", 3); enchant(stack, "soul_speed", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
+            case "AQUA_TRIDENT" -> { enchant(stack, "impaling", 5); enchant(stack, "loyalty", 3); enchant(stack, "channeling", 1); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
+            case "AQUA_WAVE_BOW" -> { enchant(stack, "power", 5); enchant(stack, "flame", 1); enchant(stack, "punch", 2); enchant(stack, "infinity", 1); enchant(stack, "unbreaking", 3); }
+            case "AQUA_OCEAN_SHIELD" -> { enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
+            case "AQUA_REAPER_SCYTHE" -> { enchant(stack, "sharpness", 5); enchant(stack, "looting", 3); enchant(stack, "sweeping_edge", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
             default -> { }
         }
     }

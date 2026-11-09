@@ -16,7 +16,7 @@ A custom Paper survival-server plugin with a blue Aqua SMP shop, shard gear, tel
 
 ## Commands
 
-- `/shop` opens Gear, Nature, Decorations, and the four-item Shard Shop. Gear contains diamond armor and tools, golden apples, and golden carrots; each diamond armor piece costs 15,000 coins and uses the bold green `Common` label. Nature and Decorations each contain 47 products. Shop menus use black stained-glass filler panes.
+- `/shop` opens Gear, Nature, Decorations, and the expanded Shard Shop. Gear is unchanged: diamond armor and tools, golden apples, and golden carrots; each diamond armor piece costs 15,000 coins and uses the bold green `Common` label. Nature has 47 plant products plus Overworld, Nether, and End build menus with 25 blocks each. Decorations has 72 products and the Shard Shop has 12. Shop menus include back/close controls and use black stained-glass filler panes.
 - Select a product to adjust quantity with `-10`, `-1`, `+1`, `+10`, or `+64`, then buy into inventory, drop the selection, or fill available inventory slots.
 - `/sell` opens the sell inventory. Place items in the deposit area, or put one item on the dispenser to collect matching stacks from your inventory. The emerald shows the estimated total before selling.
 - `/tpa <player>`, `/tpaccept`, and `/tpadeny` manage teleport requests. `/tpagui` toggles the accept/deny player-head menu.
