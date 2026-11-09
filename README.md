@@ -34,6 +34,10 @@ All command messages use the Aqua SMP prefix. Teleports use a configurable count
 
 The standalone [AquaGuard plugin](AquaGuard/README.md) provides conservative server-side flight and rapid-placement checks, Discord bot alerts, and a Paper Anti-Xray configuration template. Build it from the repository root with `gradle -p AquaGuard build`.
 
+## Meowfia Core
+
+[Meowfia Core](MeowfiaCore/README.md) is a separate red-lava-themed variant of Aqua SMP with its own plugin identity, commands, permissions, and default RTP worlds. Build it with `gradle -p MeowfiaCore build`; its first release uses the unique tag `meowfia-core-v1.0.0` and does not replace AquaSMP.
+
 ## Release Versioning
 
 Each published update uses a new version and GitHub tag, such as `v1.0.1`; existing releases and their assets are kept unchanged. Individual plugin jars use their own version numbers.

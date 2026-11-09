@@ -1,0 +1,16 @@
+teleport:
+  countdown-seconds: 10
+  request-expiry-seconds: 60
+  rtp:
+    worlds:
+      overworld: meowfia_overworld
+      nether: meowfia_nether
+      end: meowfia_end
+    radius: 8000
+    minimum-distance: 500
+    attempts: 80
+combat:
+  tag-seconds: 30
+shop:
+  price-multiplier: 1.0
+  sell-multiplier: 0.5

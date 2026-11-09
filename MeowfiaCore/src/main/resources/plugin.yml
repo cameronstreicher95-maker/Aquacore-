@@ -1,0 +1,34 @@
+name: MeowfiaCore
+version: 1.0.0
+main: dev.meowfia.MeowfiaCorePlugin
+api-version: '26.3'
+softdepend: [Vault, Multiverse-Core]
+commands:
+  shop:
+    description: Open the Meowfia SMP shop
+    aliases: [meowfiashop]
+  sell:
+    description: Open the Meowfia SMP selling menu
+  tpa:
+    description: Request to teleport to a player
+    usage: /tpa <player>
+  tpaccept:
+    description: Accept a teleport request
+  tpadeny:
+    description: Deny a teleport request
+  tpagui:
+    description: Toggle teleport request menus
+  spawn:
+    description: Teleport to spawn
+  cmdsetspawn:
+    description: Set the server spawn location
+    permission: meowfiacore.admin
+  rtp:
+    description: Open the random teleport menu
+  meowfiacore:
+    description: Meowfia SMP administration
+    permission: meowfiacore.admin
+permissions:
+  meowfiacore.admin:
+    description: Manage Meowfia SMP settings and shards
+    default: op
