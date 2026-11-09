@@ -8,6 +8,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.GameRule;
@@ -48,7 +51,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
 public final class DuelManager implements Listener, CommandExecutor {
-    private enum MenuType { SETUP, REQUEST }
+    private enum MenuType { SETUP, REQUEST, KIT_LIST, KIT_EDITOR }
 
     private static final class DuelMenu implements InventoryHolder {
         private final MenuType type;
@@ -78,6 +81,16 @@ public final class DuelManager implements Listener, CommandExecutor {
             this.sender = sender;
             this.target = target;
             this.kitName = kitName;
+        }
+    }
+
+    private static final class PendingTextEdit {
+        private final String kitName;
+        private final String field;
+
+        private PendingTextEdit(String kitName, String field) {
+            this.kitName = kitName;
+            this.field = field;
         }
     }
 
@@ -139,6 +152,7 @@ public final class DuelManager implements Listener, CommandExecutor {
     private final SMPDuelsPlugin plugin;
     private final Map<UUID, DuelRequest> requestsByTarget = new HashMap<>();
     private final Map<UUID, DuelRequest> requestsBySender = new HashMap<>();
+    private final Map<UUID, PendingTextEdit> pendingTextEdits = new HashMap<>();
     private DuelMatch activeMatch;
 
     public DuelManager(SMPDuelsPlugin plugin) {
@@ -173,6 +187,18 @@ public final class DuelManager implements Listener, CommandExecutor {
                 if (!(sender instanceof Player player)) return playerOnly(sender);
                 saveKit(player, args);
             }
+            case "kit" -> {
+                if (!(sender instanceof Player player)) return playerOnly(sender);
+                if (!player.isOp()) {
+                    player.sendMessage(message("Only operators can edit kits.", NamedTextColor.RED));
+                    return true;
+                }
+                if (args.length != 1 || !args[0].equalsIgnoreCase("edit")) {
+                    player.sendMessage(message("Usage: /kit edit", NamedTextColor.RED));
+                    return true;
+                }
+                openKitList(player, 0);
+            }
             default -> { return false; }
         }
         return true;
@@ -184,7 +210,7 @@ public final class DuelManager implements Listener, CommandExecutor {
     }
 
     private void saveKit(Player player, String[] args) {
-        if (!player.hasPermission("smpduels.admin")) {
+        if (!player.isOp()) {
             player.sendMessage(message("You do not have permission to save kits.", NamedTextColor.RED));
             return;
         }
@@ -198,6 +224,7 @@ public final class DuelManager implements Listener, CommandExecutor {
         plugin.getConfig().set(path + ".storage", serializeItems(inventory.getStorageContents()));
         plugin.getConfig().set(path + ".armor", serializeItems(inventory.getArmorContents()));
         plugin.getConfig().set(path + ".offhand", serializeItem(inventory.getItemInOffHand()));
+        if (!plugin.getConfig().contains(path + ".display.name")) plugin.getConfig().set(path + ".display.name", kitName);
         plugin.saveConfig();
         player.sendMessage(message("Saved duel kit " + kitName + ".", NamedTextColor.GREEN));
     }
@@ -253,6 +280,109 @@ public final class DuelManager implements Listener, CommandExecutor {
         return kits.getKeys(false).stream().sorted(String.CASE_INSENSITIVE_ORDER).toList();
     }
 
+    private void openKitList(Player player, int page) {
+        DuelMenu menu = new DuelMenu(MenuType.KIT_LIST, null, null, page);
+        menu.inventory = Bukkit.createInventory(menu, 54, Component.text("Edit duel kits", NamedTextColor.GOLD));
+        fillMenu(menu.inventory);
+        List<String> kits = kitNames();
+        int start = page * 45;
+        for (int slot = 0; slot < 45 && start + slot < kits.size(); slot++) {
+            String kitName = kits.get(start + slot);
+            menu.inventory.setItem(slot, getKitDisplayItem(kitName));
+        }
+        if (page > 0) menu.inventory.setItem(45, menuItem(Material.ARROW, "Previous page", NamedTextColor.WHITE));
+        menu.inventory.setItem(49, menuItem(Material.BARRIER, "Close", NamedTextColor.RED));
+        if (start + 45 < kits.size()) menu.inventory.setItem(53, menuItem(Material.ARROW, "Next page", NamedTextColor.WHITE));
+        player.openInventory(menu.inventory);
+    }
+
+    private void openKitEditor(Player player, String kitName) {
+        if (!player.isOp() || plugin.getConfig().getConfigurationSection("kits." + kitName) == null) {
+            player.sendMessage(message("That kit is unavailable for editing.", NamedTextColor.RED));
+            return;
+        }
+        DuelMenu menu = new DuelMenu(MenuType.KIT_EDITOR, null, kitName, 0);
+        menu.inventory = Bukkit.createInventory(menu, 54, Component.text("Edit kit: " + kitName, NamedTextColor.GOLD));
+        fillMenu(menu.inventory);
+        ItemStack[] storage = deserializeItems("kits." + kitName + ".storage", 36);
+        for (int slot = 0; slot < storage.length; slot++) menu.inventory.setItem(slot, storage[slot]);
+        ItemStack[] armor = deserializeItems("kits." + kitName + ".armor", 4);
+        for (int slot = 0; slot < armor.length; slot++) menu.inventory.setItem(36 + slot, armor[slot]);
+        menu.inventory.setItem(40, deserializeItem("kits." + kitName + ".offhand"));
+        menu.inventory.setItem(41, getKitDisplayItem(kitName));
+        String basePath = "kits." + kitName + ".display";
+        menu.inventory.setItem(42, editorButton(Material.NAME_TAG, "Edit display name", plugin.getConfig().getString(basePath + ".name", kitName)));
+        menu.inventory.setItem(43, editorButton(Material.WRITABLE_BOOK, "Edit display lore", String.join(" | ", plugin.getConfig().getStringList(basePath + ".lore"))));
+        menu.inventory.setItem(49, menuItem(Material.LIME_CONCRETE, "Save kit", NamedTextColor.GREEN));
+        menu.inventory.setItem(53, menuItem(Material.RED_CONCRETE, "Cancel", NamedTextColor.RED));
+        player.openInventory(menu.inventory);
+    }
+
+    private ItemStack editorButton(Material material, String title, String value) {
+        ItemStack button = menuItem(material, title, NamedTextColor.GOLD);
+        button.editMeta(meta -> meta.lore(List.of(
+            Component.text(value.isBlank() ? "Not set" : value, NamedTextColor.GRAY),
+            Component.text("Click, then type in chat. Use & color codes.", NamedTextColor.DARK_GRAY))));
+        return button;
+    }
+
+    private ItemStack getKitDisplayItem(String kitName) {
+        String path = "kits." + kitName + ".display";
+        ItemStack icon = deserializeItem(path + ".item");
+        if (icon == null || icon.getType().isAir()) {
+            ItemStack[] storage = deserializeItems("kits." + kitName + ".storage", 36);
+            icon = java.util.Arrays.stream(storage).filter(item -> item != null && !item.getType().isAir())
+                .findFirst().map(ItemStack::clone).orElseGet(() -> new ItemStack(Material.IRON_SWORD));
+        }
+        ItemMeta meta = icon.getItemMeta();
+        String displayName = plugin.getConfig().getString(path + ".name", kitName);
+        meta.displayName(LegacyComponentSerializer.legacyAmpersand().deserialize(displayName));
+        List<String> lore = plugin.getConfig().getStringList(path + ".lore");
+        if (!lore.isEmpty()) meta.lore(lore.stream().map(LegacyComponentSerializer.legacyAmpersand()::deserialize).toList());
+        icon.setItemMeta(meta);
+        return icon;
+    }
+
+    private void saveEditedKit(Player player, DuelMenu menu) {
+        String path = "kits." + menu.kitName;
+        ItemStack[] contents = new ItemStack[36];
+        for (int slot = 0; slot < contents.length; slot++) contents[slot] = menu.inventory.getItem(slot);
+        ItemStack[] armor = new ItemStack[4];
+        for (int slot = 0; slot < armor.length; slot++) armor[slot] = menu.inventory.getItem(36 + slot);
+        plugin.getConfig().set(path + ".storage", serializeItems(contents));
+        plugin.getConfig().set(path + ".armor", serializeItems(armor));
+        plugin.getConfig().set(path + ".offhand", serializeItem(menu.inventory.getItem(40)));
+        plugin.getConfig().set(path + ".display.item", serializeItem(menu.inventory.getItem(41)));
+        plugin.saveConfig();
+        player.sendMessage(message("Saved kit " + menu.kitName + ".", NamedTextColor.GREEN));
+        openKitList(player, 0);
+    }
+
+    @EventHandler
+    public void onEditorChat(AsyncChatEvent event) {
+        PendingTextEdit edit = pendingTextEdits.remove(event.getPlayer().getUniqueId());
+        if (edit == null) return;
+        event.setCancelled(true);
+        String input = PlainTextComponentSerializer.plainText().serialize(event.message());
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Player player = event.getPlayer();
+            if (!player.isOnline()) return;
+            if (input.equalsIgnoreCase("cancel")) {
+                openKitEditor(player, edit.kitName);
+                return;
+            }
+            String path = "kits." + edit.kitName + ".display." + edit.field;
+            if (edit.field.equals("lore")) {
+                List<String> lore = java.util.Arrays.stream(input.split("\\|", -1)).map(String::trim).toList();
+                plugin.getConfig().set(path, lore);
+            } else {
+                plugin.getConfig().set(path, input);
+            }
+            plugin.saveConfig();
+            openKitEditor(player, edit.kitName);
+        });
+    }
+
     private void openSetup(Player sender, Player target, String selectedKit, int page) {
         if (sender.equals(target)) {
             sender.sendMessage(message("You cannot duel yourself.", NamedTextColor.RED));
@@ -270,7 +400,7 @@ public final class DuelManager implements Listener, CommandExecutor {
         int start = page * pageSize;
         for (int index = 0; index < pageSize && start + index < kits.size(); index++) {
             String kitName = kits.get(start + index);
-            ItemStack icon = menuItem(Material.IRON_SWORD, kitName, NamedTextColor.GOLD);
+            ItemStack icon = getKitDisplayItem(kitName);
             icon.editMeta(meta -> meta.lore(List.of(Component.text(
                 kitName.equalsIgnoreCase(selectedKit) ? "Selected" : "Select this kit", NamedTextColor.GRAY))));
             menu.inventory.setItem(index, icon);
@@ -356,8 +486,11 @@ public final class DuelManager implements Listener, CommandExecutor {
         Player sender = Bukkit.getPlayer(request.sender);
         String kitLabel = request.kitName == null ? "Own inventory" : "Kit: " + request.kitName;
         menu.inventory.setItem(11, menuItem(Material.LIME_CONCRETE, "Accept duel", NamedTextColor.GREEN));
-        menu.inventory.setItem(13, menuItem(request.kitName == null ? Material.CHEST : Material.IRON_SWORD,
-            (sender == null ? "Player" : sender.getName()) + " | " + kitLabel, NamedTextColor.GOLD));
+        ItemStack kitIcon = request.kitName == null ? menuItem(Material.CHEST, kitLabel, NamedTextColor.GOLD)
+            : getKitDisplayItem(request.kitName);
+        kitIcon.editMeta(meta -> meta.displayName(Component.text((sender == null ? "Player" : sender.getName()) + " | " + kitLabel,
+            NamedTextColor.GOLD, TextDecoration.BOLD)));
+        menu.inventory.setItem(13, kitIcon);
         menu.inventory.setItem(15, menuItem(Material.RED_CONCRETE, "Deny duel", NamedTextColor.RED));
         target.openInventory(menu.inventory);
     }
@@ -548,15 +681,94 @@ public final class DuelManager implements Listener, CommandExecutor {
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getView().getTopInventory().getHolder(false) instanceof DuelMenu menu)) return;
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            event.setCancelled(true);
+            return;
+        }
+        int slot = event.getRawSlot();
+        if (menu.type == MenuType.KIT_EDITOR) {
+            if (!player.isOp()) {
+                event.setCancelled(true);
+                player.closeInventory();
+                return;
+            }
+            if (slot >= menu.inventory.getSize()) {
+                event.setCancelled(false);
+                return;
+            }
+            if (slot >= 0 && slot < 42) {
+                ItemStack current = menu.inventory.getItem(slot);
+                ItemStack cursor = event.getCursor();
+                boolean cursorEmpty = cursor == null || cursor.getType().isAir();
+                if (current != null && !current.getType().isAir()) {
+                    event.setCancelled(true);
+                    if (cursorEmpty && event.isRightClick()) menu.inventory.setItem(slot, null);
+                } else {
+                    event.setCancelled(false);
+                }
+                return;
+            }
+            event.setCancelled(true);
+            handleKitEditorClick(player, menu, slot);
+            return;
+        }
         event.setCancelled(true);
-        if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (menu.type == MenuType.SETUP) handleSetupClick(player, menu, event.getRawSlot());
-        else handleRequestClick(player, menu, event.getRawSlot());
+        switch (menu.type) {
+            case SETUP -> handleSetupClick(player, menu, slot);
+            case REQUEST -> handleRequestClick(player, menu, slot);
+            case KIT_LIST -> handleKitListClick(player, menu, slot);
+            default -> { }
+        }
     }
 
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        if (event.getView().getTopInventory().getHolder(false) instanceof DuelMenu) event.setCancelled(true);
+        if (!(event.getView().getTopInventory().getHolder(false) instanceof DuelMenu menu)) return;
+        if (menu.type != MenuType.KIT_EDITOR) {
+            event.setCancelled(true);
+            return;
+        }
+        for (int rawSlot : event.getRawSlots()) {
+            if (rawSlot >= 42 && rawSlot < menu.inventory.getSize()) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    private void handleKitListClick(Player player, DuelMenu menu, int slot) {
+        List<String> kits = kitNames();
+        if (slot >= 0 && slot < 45) {
+            int index = menu.page * 45 + slot;
+            if (index < kits.size()) openKitEditor(player, kits.get(index));
+        } else if (slot == 45 && menu.page > 0) {
+            openKitList(player, menu.page - 1);
+        } else if (slot == 49) {
+            player.closeInventory();
+        } else if (slot == 53 && (menu.page + 1) * 45 < kits.size()) {
+            openKitList(player, menu.page + 1);
+        }
+    }
+
+    private void handleKitEditorClick(Player player, DuelMenu menu, int slot) {
+        if (slot == 42) {
+            requestTextEdit(player, menu.kitName, "name");
+        } else if (slot == 43) {
+            requestTextEdit(player, menu.kitName, "lore");
+        } else if (slot == 49) {
+            saveEditedKit(player, menu);
+        } else if (slot == 53) {
+            openKitList(player, 0);
+        }
+    }
+
+    private void requestTextEdit(Player player, String kitName, String field) {
+        pendingTextEdits.put(player.getUniqueId(), new PendingTextEdit(kitName, field));
+        player.closeInventory();
+        String prompt = field.equals("name")
+            ? "Type the kit display name in chat. Use & color codes, or type cancel."
+            : "Type lore lines separated by |. Use & color codes, or type cancel.";
+        player.sendMessage(message(prompt, NamedTextColor.GOLD));
     }
 
     @EventHandler

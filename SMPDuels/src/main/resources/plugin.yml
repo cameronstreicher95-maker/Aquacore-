@@ -1,5 +1,5 @@
 name: SMPDuels
-version: 1.0.0
+version: 1.0.1
 main: dev.smpduels.SMPDuelsPlugin
 api-version: '26.3'
 depend: [Multiverse-Core]
@@ -15,6 +15,9 @@ commands:
     description: Save a duel kit
     usage: /ckit save <kitname>
     permission: smpduels.admin
+  kit:
+    description: Edit saved duel kits
+    usage: /kit edit
 permissions:
   smpduels.admin:
     description: Save duel kits

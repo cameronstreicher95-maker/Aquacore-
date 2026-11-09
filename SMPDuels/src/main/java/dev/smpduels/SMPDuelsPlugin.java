@@ -10,7 +10,7 @@ public final class SMPDuelsPlugin extends JavaPlugin {
         saveDefaultConfig();
         duelManager = new DuelManager(this);
         getServer().getPluginManager().registerEvents(duelManager, this);
-        register("duel", "duelaccept", "dueldeny", "ckit");
+        register("duel", "duelaccept", "dueldeny", "ckit", "kit");
         getLogger().info("SMPDuels enabled. Multiverse-Core is active.");
     }
 
