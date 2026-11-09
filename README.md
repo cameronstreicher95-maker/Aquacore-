@@ -38,7 +38,11 @@ The standalone [AquaGuard plugin](AquaGuard/README.md) provides conservative ser
 
 ## Meowfia Core
 
-[Meowfia Core](MeowfiaCore/README.md) is a separate red-lava-themed variant of Aqua SMP with its own plugin identity, commands, permissions, and default RTP worlds. Build it with `gradle -p MeowfiaCore build`; its first release uses the unique tag `meowfia-core-v1.0.0` and does not replace AquaSMP.
+[Meowfia Core](MeowfiaCore/README.md) is a separate red-lava-themed variant of Aqua SMP with its own plugin identity, commands, permissions, and default RTP worlds. Build it with `gradle -p MeowfiaCore build`; its current release is `meowfia-core-v1.0.2` and does not replace AquaSMP.
+
+## SMP Duels
+
+[SMPDuels](SMPDuels/README.md) adds kit and own-inventory duels in temporary Multiverse arenas. Build it with `gradle -p SMPDuels build`; Multiverse-Core is required on the server.
 
 ## Release Versioning
 

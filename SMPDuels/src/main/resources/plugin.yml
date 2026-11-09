@@ -1,0 +1,21 @@
+name: SMPDuels
+version: 1.0.0
+main: dev.smpduels.SMPDuelsPlugin
+api-version: '26.3'
+depend: [Multiverse-Core]
+commands:
+  duel:
+    description: Choose a kit and request a duel
+    usage: /duel <player>
+  duelaccept:
+    description: Accept a duel request
+  dueldeny:
+    description: Deny a duel request
+  ckit:
+    description: Save a duel kit
+    usage: /ckit save <kitname>
+    permission: smpduels.admin
+permissions:
+  smpduels.admin:
+    description: Save duel kits
+    default: op

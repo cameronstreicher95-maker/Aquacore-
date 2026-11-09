@@ -1,0 +1,6 @@
+arena:
+  world-prefix: smpduel_
+  border-size: 80
+  request-expiry-seconds: 60
+  world-load-timeout-seconds: 45
+  cleanup-timeout-seconds: 30
