@@ -82,7 +82,7 @@ public final class ShopManager implements Listener, CommandExecutor {
         ShopCatalog.Section[] sections = ShopCatalog.Section.values();
         for (int index = 0; index < sections.length; index++) {
             ShopCatalog.Section section = sections[index];
-            ItemStack icon = item(section.icon(), "Starter " + section.label(), NamedTextColor.AQUA);
+            ItemStack icon = item(section.icon(), section.label(), NamedTextColor.AQUA);
             setLore(icon, List.of(line(section == ShopCatalog.Section.SHARDS
                 ? "Balance: " + (long) economy.balance(player, true) + " shards"
                 : products.get(section).size() + " items", NamedTextColor.GRAY), line("Click to browse", NamedTextColor.WHITE)));
@@ -399,7 +399,13 @@ public final class ShopManager implements Listener, CommandExecutor {
     }
 
     private Component productName(ShopCatalog.Product product) {
-        String prefix = isDiamondArmor(product.id()) ? "Common " : "Starter ";
+        String prefix = "";
+        if (isDiamondArmor(product.id())) {
+            prefix = "Common ";
+        } else if (product.section() == ShopCatalog.Section.GEAR
+            && !product.id().equals("GOLDEN_APPLE") && !product.id().equals("GOLDEN_CARROT")) {
+            prefix = "Starter ";
+        }
         return Component.text(prefix + plainName(product.id()), NamedTextColor.GREEN, TextDecoration.BOLD);
     }
 
