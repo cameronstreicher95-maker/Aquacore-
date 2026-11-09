@@ -6,7 +6,7 @@ A custom Paper survival-server plugin with a red-and-gold lava-themed Meowfia SM
 
 - Java 25 and Gradle are required.
 - The build targets the published Paper `26.3-pre-2.build.0-alpha` API because that is the available 26.3 Maven artifact.
-- Run `gradle build`; the plugin jar is written to `build/libs/MeowfiaCore-1.0.3.jar`.
+- Run `gradle build`; the plugin jar is written to `build/libs/MeowfiaCore-1.0.4.jar`.
 
 ## Dependencies
 
@@ -25,7 +25,7 @@ A custom Paper survival-server plugin with a red-and-gold lava-themed Meowfia SM
 - `/meowfiacore give <player> <item-id> [amount]` grants any catalog item, including special shard tools, and requires `meowfiacore.admin`. `/meowfiacore shards <player> <amount>` grants shard currency.
 - The native red-and-gold sidebar displays money (when Vault is available), kills, deaths, shards, and online players. It requires no PlaceholderAPI.
 - Edit `plugins/MeowfiaCore/scoreboard/scoreboard.yml` to change the title, update interval, and lines. Built-in placeholders include `%player%`, `%display_name%`, `%money%`, `%kills%`, `%deaths%`, `%shards%`, `%online%`, `%max_players%`, and `%world%`; use `&` color codes.
-- Operators use `/afkz`, then left-click the highest corner and right-click the opposite lowest corner with the wand. `afk.reward-shards` and `afk.cooldown-seconds` in `plugins/MeowfiaCore/config.yml` control the built-in shard reward.
+- Operators use `/afkz`, left-click the highest corner and right-click the opposite lowest corner, then run `/afk flag true` to activate the zone (`/afk flag false` disables it). Players see an action-bar countdown and receive 10 shards after 60 continuous seconds in the zone; leaving resets the countdown. `afk.reward-shards` and `afk.cooldown-seconds` in `plugins/MeowfiaCore/config.yml` configure the reward.
 - Shop product settings are generated at `shop.products.<ITEM_ID>` in `config.yml`; per-item enablement, name, material, price, currency, lore, enchantments, ability, unbreakable state, and quantity limit can be edited there.
 
 All command messages use the Meowfia SMP prefix. Teleports use a configurable countdown and cancel on movement. Player combat tags last 30 seconds by default; commands are blocked while tagged, and logging out while tagged kills the player so normal death drops apply.

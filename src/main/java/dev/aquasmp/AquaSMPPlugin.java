@@ -25,7 +25,7 @@ public final class AquaSMPPlugin extends JavaPlugin {
         afkZoneService.start();
         registerExecutor(shop, "shop", "sell", "aquasmp");
         registerExecutor(teleports, "tpa", "tpaccept", "tpadeny", "tpagui", "spawn", "cmdsetspawn", "rtp");
-        registerExecutor(afkZoneService, "afkz");
+        registerExecutor(afkZoneService, "afk", "afkz");
         getServer().getScheduler().runTaskLater(this, teleports::setupRtpWorlds, 1L);
         combatService.start();
         getLogger().info("Aqua SMP is enabled. Vault economy: " + economy.hasVault());

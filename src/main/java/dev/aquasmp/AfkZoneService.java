@@ -2,6 +2,8 @@ package dev.aquasmp;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -27,14 +29,13 @@ public final class AfkZoneService implements Listener, CommandExecutor {
     private final AquaSMPPlugin plugin;
     private final EconomyService economy;
     private final NamespacedKey wandKey;
-    private final NamespacedKey nextRewardKey;
+    private final Map<UUID, Long> insideSince = new HashMap<>();
     private BukkitTask rewardTask;
 
     public AfkZoneService(AquaSMPPlugin plugin, EconomyService economy) {
         this.plugin = plugin;
         this.economy = economy;
         wandKey = new NamespacedKey(plugin, "afk_zone_wand");
-        nextRewardKey = new NamespacedKey(plugin, "afk_next_shard_reward");
     }
 
     public void start() {
@@ -53,6 +54,23 @@ public final class AfkZoneService implements Listener, CommandExecutor {
         }
         if (!player.isOp()) {
             player.sendMessage(message("Only operators can set the AFK zone.", NamedTextColor.RED));
+            return true;
+        }
+        if (command.getName().equalsIgnoreCase("afk")) {
+            if (args.length != 2 || !args[0].equalsIgnoreCase("flag")
+                || !(args[1].equalsIgnoreCase("true") || args[1].equalsIgnoreCase("false"))) {
+                player.sendMessage(message("Usage: /afk flag <true|false>", NamedTextColor.RED));
+                return true;
+            }
+            boolean enabled = Boolean.parseBoolean(args[1]);
+            if (enabled && !hasSelection()) {
+                player.sendMessage(message("Select both AFK zone corners with /afkz before enabling the zone.", NamedTextColor.RED));
+                return true;
+            }
+            plugin.getConfig().set("afk.enabled", enabled);
+            plugin.saveConfig();
+            if (!enabled) insideSince.clear();
+            player.sendMessage(message("AFK zone " + (enabled ? "enabled" : "disabled") + ".", NamedTextColor.GREEN));
             return true;
         }
         if (args.length != 0) {
@@ -75,8 +93,10 @@ public final class AfkZoneService implements Listener, CommandExecutor {
         event.setCancelled(true);
         Location point = event.getClickedBlock().getLocation();
         if (action == Action.LEFT_CLICK_BLOCK) {
+            plugin.getConfig().set("afk.low", null);
+            plugin.getConfig().set("afk.enabled", false);
             savePoint("high", point);
-            player.sendMessage(message("Highest corner set. Right-click the opposite lowest corner.", NamedTextColor.GREEN));
+            player.sendMessage(message("Highest corner set; AFK zone disabled. Right-click the opposite lowest corner, then run /afk flag true.", NamedTextColor.GREEN));
             return;
         }
         String highWorld = plugin.getConfig().getString("afk.high.world", "");
@@ -89,7 +109,7 @@ public final class AfkZoneService implements Listener, CommandExecutor {
             return;
         }
         savePoint("low", point);
-        player.sendMessage(message("AFK zone saved. Shard amount and cooldown are in config.yml.", NamedTextColor.GREEN));
+        player.sendMessage(message("Lowest corner set. Run /afk flag true to activate this AFK zone.", NamedTextColor.GREEN));
     }
 
     private void savePoint(String key, Location location) {
@@ -102,19 +122,45 @@ public final class AfkZoneService implements Listener, CommandExecutor {
     }
 
     private void rewardPlayers() {
-        if (!plugin.getConfig().getBoolean("afk.enabled", true)) return;
-        long reward = plugin.getConfig().getLong("afk.reward-shards", 1);
+        if (!plugin.getConfig().getBoolean("afk.enabled", false)) {
+            insideSince.clear();
+            return;
+        }
+        long reward = plugin.getConfig().getLong("afk.reward-shards", 10);
+        long cooldownSeconds = Math.max(1, plugin.getConfig().getLong("afk.cooldown-seconds", 60));
         if (reward < 1) return;
-        long cooldown = Math.max(1, plugin.getConfig().getLong("afk.cooldown-seconds", 60)) * 1000L;
         long now = System.currentTimeMillis();
+        java.util.Set<UUID> inside = new java.util.HashSet<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!insideZone(player.getLocation())) continue;
-            long nextReward = player.getPersistentDataContainer().getOrDefault(nextRewardKey, PersistentDataType.LONG, 0L);
-            if (now < nextReward) continue;
+            UUID playerId = player.getUniqueId();
+            inside.add(playerId);
+            long startedAt = insideSince.computeIfAbsent(playerId, ignored -> now);
+            long elapsedSeconds = Math.max(0, (now - startedAt) / 1000L);
+            long remainingSeconds = cooldownSeconds - elapsedSeconds;
+            if (remainingSeconds > 0) {
+                player.sendActionBar(message("AFK reward in " + formatCountdown(remainingSeconds)
+                    + "  |  " + reward + " shards", NamedTextColor.GOLD));
+                continue;
+            }
             economy.grantShards(player, reward);
-            player.getPersistentDataContainer().set(nextRewardKey, PersistentDataType.LONG, now + cooldown);
             player.sendMessage(message("AFK reward: +" + reward + " shards.", NamedTextColor.GREEN));
+            insideSince.put(playerId, now);
+            player.sendActionBar(message("AFK reward: +" + reward + " shards", NamedTextColor.GREEN));
         }
+        insideSince.keySet().removeIf(playerId -> !inside.contains(playerId));
+    }
+
+    private String formatCountdown(long seconds) {
+        long minutes = seconds / 60;
+        long remainingSeconds = seconds % 60;
+        return String.format(java.util.Locale.ROOT, "%02d:%02d", minutes, remainingSeconds);
+    }
+
+    private boolean hasSelection() {
+        String highWorld = plugin.getConfig().getString("afk.high.world", "");
+        String lowWorld = plugin.getConfig().getString("afk.low.world", "");
+        return !highWorld.isBlank() && highWorld.equals(lowWorld) && Bukkit.getWorld(highWorld) != null;
     }
 
     private boolean insideZone(Location location) {

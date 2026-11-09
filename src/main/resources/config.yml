@@ -15,6 +15,6 @@ shop:
   price-multiplier: 1.0
   sell-multiplier: 0.5
 afk:
-  enabled: true
-  reward-shards: 1
+  enabled: false
+  reward-shards: 10
   cooldown-seconds: 60
