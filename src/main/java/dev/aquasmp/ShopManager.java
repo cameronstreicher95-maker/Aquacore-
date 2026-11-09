@@ -440,11 +440,6 @@ public final class ShopManager implements Listener, CommandExecutor {
             case "AQUA_3X3_PICKAXE" -> 48;
             case "AQUA_TREE_FELLER" -> 32;
             case "AQUA_SELL_AXE" -> 64;
-            case "AQUA_TIDEBREAKER", "AQUA_REAPER_SCYTHE" -> 80;
-            case "AQUA_TIDE_HELMET", "AQUA_TIDE_CHESTPLATE", "AQUA_TIDE_LEGGINGS", "AQUA_TIDE_BOOTS" -> 96;
-            case "AQUA_TRIDENT" -> 72;
-            case "AQUA_WAVE_BOW" -> 56;
-            case "AQUA_OCEAN_SHIELD" -> 32;
             default -> 40;
         };
         if (isDiamondArmor(product.id())) {
@@ -536,14 +531,6 @@ public final class ShopManager implements Listener, CommandExecutor {
             case "AQUA_TREE_FELLER" -> { enchant(stack, "efficiency", 5); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
             case "AQUA_SELL_AXE" -> { enchant(stack, "efficiency", 5); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
             case "AQUA_TIDEBREAKER" -> { enchant(stack, "sharpness", 5); enchant(stack, "looting", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
-            case "AQUA_TIDE_HELMET" -> { enchant(stack, "protection", 4); enchant(stack, "respiration", 3); enchant(stack, "aqua_affinity", 1); enchant(stack, "thorns", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
-            case "AQUA_TIDE_CHESTPLATE" -> { enchant(stack, "protection", 4); enchant(stack, "thorns", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
-            case "AQUA_TIDE_LEGGINGS" -> { enchant(stack, "protection", 4); enchant(stack, "thorns", 3); enchant(stack, "swift_sneak", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
-            case "AQUA_TIDE_BOOTS" -> { enchant(stack, "protection", 4); enchant(stack, "feather_falling", 4); enchant(stack, "depth_strider", 3); enchant(stack, "soul_speed", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
-            case "AQUA_TRIDENT" -> { enchant(stack, "impaling", 5); enchant(stack, "loyalty", 3); enchant(stack, "channeling", 1); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
-            case "AQUA_WAVE_BOW" -> { enchant(stack, "power", 5); enchant(stack, "flame", 1); enchant(stack, "punch", 2); enchant(stack, "infinity", 1); enchant(stack, "unbreaking", 3); }
-            case "AQUA_OCEAN_SHIELD" -> { enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
-            case "AQUA_REAPER_SCYTHE" -> { enchant(stack, "sharpness", 5); enchant(stack, "looting", 3); enchant(stack, "sweeping_edge", 3); enchant(stack, "unbreaking", 3); enchant(stack, "mending", 1); }
             default -> { }
         }
     }

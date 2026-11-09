@@ -85,9 +85,7 @@ public final class ShopCatalog {
             "BLUE_CANDLE", "LODESTONE", "TARGET", "NOTE_BLOCK", "JUKEBOX"
         ));
         ITEMS.put(Section.SHARDS, List.of(
-            "AQUA_3X3_PICKAXE", "AQUA_TREE_FELLER", "AQUA_SELL_AXE", "AQUA_TIDEBREAKER",
-            "AQUA_TIDE_HELMET", "AQUA_TIDE_CHESTPLATE", "AQUA_TIDE_LEGGINGS", "AQUA_TIDE_BOOTS",
-            "AQUA_TRIDENT", "AQUA_WAVE_BOW", "AQUA_OCEAN_SHIELD", "AQUA_REAPER_SCYTHE"
+            "AQUA_3X3_PICKAXE", "AQUA_TREE_FELLER", "AQUA_SELL_AXE", "AQUA_TIDEBREAKER"
         ));
         NATURE_ITEMS.put(NatureSubcategory.OVERWORLD, List.of(
             "OAK_LOG", "OAK_PLANKS", "SPRUCE_LOG", "SPRUCE_PLANKS", "DARK_OAK_LOG", "DARK_OAK_PLANKS",
@@ -139,14 +137,6 @@ public final class ShopCatalog {
             case "AQUA_3X3_PICKAXE" -> Material.NETHERITE_PICKAXE;
             case "AQUA_TREE_FELLER", "AQUA_SELL_AXE" -> Material.NETHERITE_AXE;
             case "AQUA_TIDEBREAKER" -> Material.NETHERITE_SWORD;
-            case "AQUA_TIDE_HELMET" -> Material.NETHERITE_HELMET;
-            case "AQUA_TIDE_CHESTPLATE" -> Material.NETHERITE_CHESTPLATE;
-            case "AQUA_TIDE_LEGGINGS" -> Material.NETHERITE_LEGGINGS;
-            case "AQUA_TIDE_BOOTS" -> Material.NETHERITE_BOOTS;
-            case "AQUA_TRIDENT" -> Material.TRIDENT;
-            case "AQUA_WAVE_BOW" -> Material.BOW;
-            case "AQUA_OCEAN_SHIELD" -> Material.SHIELD;
-            case "AQUA_REAPER_SCYTHE" -> Material.NETHERITE_SWORD;
             default -> Material.matchMaterial(id);
         };
     }
