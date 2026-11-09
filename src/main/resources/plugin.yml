@@ -1,5 +1,5 @@
 name: AquaSMP
-version: 1.0.1
+version: 1.0.2
 main: dev.aquasmp.AquaSMPPlugin
 api-version: '26.3'
 softdepend: [Vault, Multiverse-Core]
@@ -27,6 +27,7 @@ commands:
     description: Open the random teleport menu
   aquasmp:
     description: Aqua SMP administration
+    usage: /aquasmp give <player> <item-id> [amount]
     permission: aquasmp.admin
 permissions:
   aquasmp.admin:

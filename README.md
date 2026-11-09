@@ -6,7 +6,7 @@ A custom Paper survival-server plugin with a blue Aqua SMP shop, shard gear, tel
 
 - Java 25 and Gradle are required.
 - The build targets the published Paper `26.3-pre-2.build.0-alpha` API because that is the available 26.3 Maven artifact.
-- Run `gradle build`; the plugin jar is written to `build/libs/AquaSMP-1.0.1.jar`.
+- Run `gradle build`; the plugin jar is written to `build/libs/AquaSMP-1.0.2.jar`.
 
 ## Dependencies
 
@@ -22,7 +22,9 @@ A custom Paper survival-server plugin with a blue Aqua SMP shop, shard gear, tel
 - `/tpa <player>`, `/tpaccept`, and `/tpadeny` manage teleport requests. `/tpagui` toggles the accept/deny player-head menu.
 - `/spawn` teleports to the configured spawn. Operators can run `/cmdsetspawn` to save their current location.
 - `/rtp` opens the Overworld, Nether, and End destination menu. Worlds default to `aqua_overworld`, `aqua_nether`, and `aqua_end`.
-- `/aquasmp shards <player> <amount>` grants shards and requires `aquasmp.admin`.
+- `/aquasmp give <player> <item-id> [amount]` grants any catalog item, including special shard tools, and requires `aquasmp.admin`. `/aquasmp shards <player> <amount>` grants shard currency.
+- The native sidebar scoreboard displays money (when Vault is available), kills, deaths, shards, and online players. It requires no PlaceholderAPI.
+- Shop product settings are generated at `shop.products.<ITEM_ID>` in `config.yml`; per-item enablement, name, material, price, currency, lore, enchantments, ability, unbreakable state, and quantity limit can be edited there.
 
 All command messages use the Aqua SMP prefix. Teleports use a configurable countdown and cancel on movement. Player combat tags last 30 seconds by default; commands are blocked while tagged, and logging out while tagged kills the player so normal death drops apply.
 

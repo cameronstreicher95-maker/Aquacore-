@@ -6,7 +6,7 @@ A custom Paper survival-server plugin with a red-and-gold lava-themed Meowfia SM
 
 - Java 25 and Gradle are required.
 - The build targets the published Paper `26.3-pre-2.build.0-alpha` API because that is the available 26.3 Maven artifact.
-- Run `gradle build`; the plugin jar is written to `build/libs/MeowfiaCore-1.0.1.jar`.
+- Run `gradle build`; the plugin jar is written to `build/libs/MeowfiaCore-1.0.2.jar`.
 
 ## Dependencies
 
@@ -22,7 +22,9 @@ A custom Paper survival-server plugin with a red-and-gold lava-themed Meowfia SM
 - `/tpa <player>`, `/tpaccept`, and `/tpadeny` manage teleport requests. `/tpagui` toggles the accept/deny player-head menu.
 - `/spawn` teleports to the configured spawn. Operators can run `/cmdsetspawn` to save their current location.
 - `/rtp` opens the Overworld, Nether, and End destination menu. Worlds default to `meowfia_overworld`, `meowfia_nether`, and `meowfia_end`.
-- `/meowfiacore shards <player> <amount>` grants shards and requires `meowfiacore.admin`.
+- `/meowfiacore give <player> <item-id> [amount]` grants any catalog item, including special shard tools, and requires `meowfiacore.admin`. `/meowfiacore shards <player> <amount>` grants shard currency.
+- The native red-and-gold sidebar displays money (when Vault is available), kills, deaths, shards, and online players. It requires no PlaceholderAPI.
+- Shop product settings are generated at `shop.products.<ITEM_ID>` in `config.yml`; per-item enablement, name, material, price, currency, lore, enchantments, ability, unbreakable state, and quantity limit can be edited there.
 
 All command messages use the Meowfia SMP prefix. Teleports use a configurable countdown and cancel on movement. Player combat tags last 30 seconds by default; commands are blocked while tagged, and logging out while tagged kills the player so normal death drops apply.
 

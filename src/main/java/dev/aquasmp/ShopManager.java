@@ -72,9 +72,96 @@ public final class ShopManager implements Listener, CommandExecutor {
         this.economy = economy;
         productKey = new NamespacedKey(plugin, "shop_product");
         abilityKey = new NamespacedKey(plugin, "aqua_ability");
+        configureProductDefaults();
+        reloadProducts();
+    }
+
+    private void configureProductDefaults() {
+        boolean changed = false;
+        Set<String> seen = new HashSet<>();
         for (ShopCatalog.Section section : ShopCatalog.Section.values()) {
-            products.put(section, ShopCatalog.products(section));
+            for (ShopCatalog.Product product : ShopCatalog.products(section)) {
+                if (seen.add(product.id())) changed |= configureProductDefaults(product);
+            }
         }
+        for (ShopCatalog.NatureSubcategory subcategory : ShopCatalog.NatureSubcategory.values()) {
+            for (ShopCatalog.Product product : ShopCatalog.products(subcategory)) {
+                if (seen.add(product.id())) changed |= configureProductDefaults(product);
+            }
+        }
+        if (changed) plugin.saveConfig();
+    }
+
+    private boolean configureProductDefaults(ShopCatalog.Product product) {
+        String path = productConfigPath(product);
+        boolean changed = setDefault(path + ".enabled", true);
+        changed |= setDefault(path + ".name", defaultProductName(product));
+        changed |= setDefault(path + ".material", product.material().name());
+        changed |= setDefault(path + ".price", defaultPrice(product));
+        changed |= setDefault(path + ".currency", product.section().usesShards() ? "SHARDS" : "MONEY");
+        changed |= setDefault(path + ".max-quantity", 2304);
+        changed |= setDefault(path + ".unbreakable", false);
+        changed |= setDefault(path + ".ability-enabled", product.section().usesShards());
+        changed |= setDefault(path + ".lore", List.of());
+        changed |= setDefault(path + ".enchantments", defaultEnchantments(product));
+        return changed;
+    }
+
+    private boolean setDefault(String path, Object value) {
+        if (plugin.getConfig().contains(path)) return false;
+        plugin.getConfig().set(path, value);
+        return true;
+    }
+
+    private void reloadProducts() {
+        for (ShopCatalog.Section section : ShopCatalog.Section.values()) {
+            products.put(section, ShopCatalog.products(section).stream().filter(this::isEnabled).toList());
+        }
+    }
+
+    private List<ShopCatalog.Product> natureProducts(ShopCatalog.NatureSubcategory subcategory) {
+        return ShopCatalog.products(subcategory).stream().filter(this::isEnabled).toList();
+    }
+
+    private boolean isEnabled(ShopCatalog.Product product) {
+        return plugin.getConfig().getBoolean(productConfigPath(product) + ".enabled", true);
+    }
+
+    private String productConfigPath(ShopCatalog.Product product) {
+        return "shop.products." + product.id();
+    }
+
+    private double defaultPrice(ShopCatalog.Product product) {
+        if (product.section().usesShards()) return switch (product.id()) {
+            case "AQUA_3X3_PICKAXE" -> 48;
+            case "AQUA_TREE_FELLER" -> 32;
+            case "AQUA_SELL_AXE" -> 64;
+            default -> 40;
+        };
+        if (isDiamondArmor(product.id())) return 15_000;
+        return switch (product.section()) {
+            case GEAR -> 120 + product.index() * 22.0;
+            case NATURE -> 8 + product.index() * 2.0;
+            case DECOR -> 14 + product.index() * 3.0;
+            case REDSTONE -> 12 + product.index() * 2.0;
+            case SHARDS -> 0;
+        };
+    }
+
+    private String defaultProductName(ShopCatalog.Product product) {
+        String prefix = "";
+        if (isDiamondArmor(product.id())) prefix = "Common ";
+        else if (product.section() == ShopCatalog.Section.GEAR
+            && !product.id().equals("GOLDEN_APPLE") && !product.id().equals("GOLDEN_CARROT")) prefix = "Starter ";
+        return prefix + plainName(product.id());
+    }
+
+    private List<String> defaultEnchantments(ShopCatalog.Product product) {
+        ItemStack template = new ItemStack(product.material());
+        if (product.section() == ShopCatalog.Section.SHARDS) addCustomEnchants(template, product.id());
+        else if (product.section() == ShopCatalog.Section.GEAR) addMaxedDiamondEnchants(template);
+        return template.getEnchantments().entrySet().stream()
+            .map(entry -> entry.getKey().getKey().getKey() + ":" + entry.getValue()).toList();
     }
 
     public void openShop(Player player) {
@@ -105,6 +192,10 @@ public final class ShopManager implements Listener, CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (command.getName().equalsIgnoreCase("aquasmp")) {
+            handleAdminCommand(sender, args);
+            return true;
+        }
         if (!(sender instanceof Player player)) {
             sender.sendMessage("This command can only be used in game.");
             return true;
@@ -112,13 +203,43 @@ public final class ShopManager implements Listener, CommandExecutor {
         switch (command.getName().toLowerCase(Locale.ROOT)) {
             case "shop" -> openShop(player);
             case "sell" -> openSell(player);
-            case "aquasmp" -> handleAdminCommand(sender, args);
             default -> { return false; }
         }
         return true;
     }
 
     private void handleAdminCommand(CommandSender sender, String[] args) {
+        if (args.length >= 3 && args[0].equalsIgnoreCase("give")) {
+            if (args.length > 4) {
+                sender.sendMessage(prefix("Usage: /aquasmp give <player> <item-id> [amount]", NamedTextColor.RED));
+                return;
+            }
+            Player target = Bukkit.getPlayerExact(args[1]);
+            if (target == null) {
+                sender.sendMessage(prefix("That player is not online.", NamedTextColor.RED));
+                return;
+            }
+            String requestedId = args[2].toUpperCase(Locale.ROOT).replace('-', '_');
+            ShopCatalog.Product product = findProduct(requestedId);
+            if (product == null) {
+                sender.sendMessage(prefix("Unknown shop item ID: " + args[2], NamedTextColor.RED));
+                return;
+            }
+            int amount = 1;
+            try {
+                if (args.length == 4) amount = Integer.parseInt(args[3]);
+                if (amount < 1 || amount > maxQuantity(product)) throw new NumberFormatException();
+            } catch (NumberFormatException exception) {
+                sender.sendMessage(prefix("Amount must be between 1 and " + maxQuantity(product) + ".", NamedTextColor.RED));
+                return;
+            }
+            for (ItemStack stack : makeStacks(createProductItem(product), amount)) {
+                Map<Integer, ItemStack> leftovers = target.getInventory().addItem(stack);
+                leftovers.values().forEach(leftover -> target.getWorld().dropItemNaturally(target.getLocation(), leftover));
+            }
+            sender.sendMessage(prefix("Gave " + amount + " " + product.id() + " to " + target.getName() + ".", NamedTextColor.GREEN));
+            return;
+        }
         if (args.length == 3 && args[0].equalsIgnoreCase("shards")) {
             Player target = Bukkit.getPlayerExact(args[1]);
             if (target == null) {
@@ -136,7 +257,22 @@ public final class ShopManager implements Listener, CommandExecutor {
             }
             return;
         }
-        sender.sendMessage(prefix("Usage: /aquasmp shards <player> <amount>", NamedTextColor.GRAY));
+        sender.sendMessage(prefix("Usage: /aquasmp give <player> <item-id> [amount] | shards <player> <amount>", NamedTextColor.GRAY));
+    }
+
+    private ShopCatalog.Product findProduct(String requestedId) {
+        for (ShopCatalog.Section section : ShopCatalog.Section.values()) {
+            for (ShopCatalog.Product product : ShopCatalog.products(section)) {
+                if (product.id().equalsIgnoreCase(requestedId)
+                    || product.id().equalsIgnoreCase("AQUA_" + requestedId)) return product;
+            }
+        }
+        for (ShopCatalog.NatureSubcategory subcategory : ShopCatalog.NatureSubcategory.values()) {
+            for (ShopCatalog.Product product : ShopCatalog.products(subcategory)) {
+                if (product.id().equalsIgnoreCase(requestedId)) return product;
+            }
+        }
+        return null;
     }
 
     @EventHandler
@@ -237,7 +373,7 @@ public final class ShopManager implements Listener, CommandExecutor {
 
         if (holder.natureSubcategory != null) {
             if (slot < 25) {
-                List<ShopCatalog.Product> natureItems = ShopCatalog.products(holder.natureSubcategory);
+                List<ShopCatalog.Product> natureItems = natureProducts(holder.natureSubcategory);
                 if (slot < natureItems.size()) {
                     openConfirm(player, natureItems.get(slot), 1, 0, holder.natureSubcategory, holder.parentPage);
                 }
@@ -285,9 +421,9 @@ public final class ShopManager implements Listener, CommandExecutor {
         switch (slot) {
             case 10 -> holder.amount = Math.max(1, holder.amount - 10);
             case 11 -> holder.amount = Math.max(1, holder.amount - 1);
-            case 15 -> holder.amount = Math.min(2304, holder.amount + 1);
-            case 16 -> holder.amount = Math.min(2304, holder.amount + 10);
-            case 17 -> holder.amount = Math.min(2304, holder.amount + 64);
+            case 15 -> holder.amount = Math.min(maxQuantity(holder.product), holder.amount + 1);
+            case 16 -> holder.amount = Math.min(maxQuantity(holder.product), holder.amount + 10);
+            case 17 -> holder.amount = Math.min(maxQuantity(holder.product), holder.amount + 64);
             case 28 -> purchase(player, holder.product, holder.amount, PurchaseMode.INVENTORY);
             case 30 -> purchase(player, holder.product, holder.amount, PurchaseMode.DROP);
             case 32 -> purchase(player, holder.product, holder.amount, PurchaseMode.FILL);
@@ -312,7 +448,7 @@ public final class ShopManager implements Listener, CommandExecutor {
             ShopCatalog.Product product = sectionItems.get(start + index);
             ItemStack icon = createProductItem(product);
             setLore(icon, List.of(
-                line(priceText(product), section.usesShards() ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.GOLD),
+                line(priceText(product), usesShards(product) ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.GOLD),
                 line("Click to select quantity", NamedTextColor.GRAY)));
             holder.inventory.setItem(index, icon);
         }
@@ -338,7 +474,7 @@ public final class ShopManager implements Listener, CommandExecutor {
         holder.natureSubcategory = subcategory;
         holder.parentPage = parentPage;
         fill(holder.inventory);
-        List<ShopCatalog.Product> sectionItems = ShopCatalog.products(subcategory);
+        List<ShopCatalog.Product> sectionItems = natureProducts(subcategory);
         for (int index = 0; index < sectionItems.size(); index++) {
             ShopCatalog.Product product = sectionItems.get(index);
             ItemStack icon = createProductItem(product);
@@ -402,8 +538,8 @@ public final class ShopManager implements Listener, CommandExecutor {
             return;
         }
         double total = price(product) * amount;
-        if (!economy.withdraw(player, total, product.section().usesShards())) {
-            player.sendMessage(prefix(product.section().usesShards()
+        if (!economy.withdraw(player, total, usesShards(product))) {
+            player.sendMessage(prefix(usesShards(product)
                 ? "You do not have enough shards."
                 : economy.hasVault() ? "You do not have enough money." : "The shop requires Vault and an economy provider.", NamedTextColor.RED));
             return;
@@ -431,7 +567,23 @@ public final class ShopManager implements Listener, CommandExecutor {
             if (content == null || content.getType().isAir()) space += maxStack;
             else if (content.isSimilar(template) && content.getAmount() < maxStack) space += maxStack - content.getAmount();
         }
-        return Math.min(2304, space);
+        return Math.min(maxQuantityFromItem(template), Math.min(2304, space));
+    }
+
+    private int maxQuantityFromItem(ItemStack template) {
+        String productId = template.getItemMeta().getPersistentDataContainer().get(productKey, PersistentDataType.STRING);
+        if (productId == null) return 2304;
+        for (ShopCatalog.Section section : ShopCatalog.Section.values()) {
+            for (ShopCatalog.Product product : ShopCatalog.products(section)) {
+                if (product.id().equals(productId)) return maxQuantity(product);
+            }
+        }
+        for (ShopCatalog.NatureSubcategory subcategory : ShopCatalog.NatureSubcategory.values()) {
+            for (ShopCatalog.Product product : ShopCatalog.products(subcategory)) {
+                if (product.id().equals(productId)) return maxQuantity(product);
+            }
+        }
+        return 2304;
     }
 
     private List<ItemStack> makeStacks(ItemStack template, int amount) {
@@ -447,23 +599,18 @@ public final class ShopManager implements Listener, CommandExecutor {
     }
 
     private double price(ShopCatalog.Product product) {
-        if (product.section().usesShards()) return switch (product.id()) {
-            case "AQUA_3X3_PICKAXE" -> 48;
-            case "AQUA_TREE_FELLER" -> 32;
-            case "AQUA_SELL_AXE" -> 64;
-            default -> 40;
-        };
-        if (isDiamondArmor(product.id())) {
-            return 15_000 * plugin.getConfig().getDouble("shop.price-multiplier", 1.0);
-        }
-        double base = switch (product.section()) {
-            case GEAR -> 120 + product.index() * 22.0;
-            case NATURE -> 8 + product.index() * 2.0;
-            case DECOR -> 14 + product.index() * 3.0;
-            case REDSTONE -> 12 + product.index() * 2.0;
-            case SHARDS -> 0;
-        };
-        return Math.max(1, base * plugin.getConfig().getDouble("shop.price-multiplier", 1.0));
+        double configuredPrice = plugin.getConfig().getDouble(productConfigPath(product) + ".price", defaultPrice(product));
+        if (usesShards(product)) return Math.max(0, configuredPrice);
+        return Math.max(0, configuredPrice * plugin.getConfig().getDouble("shop.price-multiplier", 1.0));
+    }
+
+    private boolean usesShards(ShopCatalog.Product product) {
+        return plugin.getConfig().getString(productConfigPath(product) + ".currency", product.section().usesShards() ? "SHARDS" : "MONEY")
+            .equalsIgnoreCase("SHARDS");
+    }
+
+    private int maxQuantity(ShopCatalog.Product product) {
+        return Math.max(1, plugin.getConfig().getInt(productConfigPath(product) + ".max-quantity", 2304));
     }
 
     private String priceText(ShopCatalog.Product product) {
@@ -471,7 +618,7 @@ public final class ShopManager implements Listener, CommandExecutor {
     }
 
     private String currency(ShopCatalog.Product product) {
-        return product.section().usesShards() ? " shards" : " coins";
+        return usesShards(product) ? " shards" : " coins";
     }
 
     private String format(double value) {
@@ -479,36 +626,35 @@ public final class ShopManager implements Listener, CommandExecutor {
     }
 
     private ItemStack createProductItem(ShopCatalog.Product product) {
-        ItemStack stack = new ItemStack(product.material());
+        String path = productConfigPath(product);
+        Material configuredMaterial = Material.matchMaterial(plugin.getConfig().getString(path + ".material", product.material().name()));
+        ItemStack stack = new ItemStack(configuredMaterial == null ? product.material() : configuredMaterial);
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(productName(product));
+        List<String> configuredLore = plugin.getConfig().getStringList(path + ".lore");
+        if (!configuredLore.isEmpty()) meta.lore(configuredLore.stream().map(Component::text).toList());
+        meta.setUnbreakable(plugin.getConfig().getBoolean(path + ".unbreakable", false));
         meta.getPersistentDataContainer().set(productKey, PersistentDataType.STRING, product.id());
-        if (product.section() == ShopCatalog.Section.SHARDS) {
+        if (product.section() == ShopCatalog.Section.SHARDS && plugin.getConfig().getBoolean(path + ".ability-enabled", true)) {
             meta.getPersistentDataContainer().set(abilityKey, PersistentDataType.STRING, product.id());
-            addCustomEnchants(stack, product.id());
-            meta = stack.getItemMeta();
-            meta.displayName(productName(product));
-            meta.getPersistentDataContainer().set(productKey, PersistentDataType.STRING, product.id());
-            meta.getPersistentDataContainer().set(abilityKey, PersistentDataType.STRING, product.id());
-        } else if (product.section() == ShopCatalog.Section.GEAR) {
-            addMaxedDiamondEnchants(stack);
-            meta = stack.getItemMeta();
-            meta.displayName(productName(product));
-            meta.getPersistentDataContainer().set(productKey, PersistentDataType.STRING, product.id());
         }
         stack.setItemMeta(meta);
+        for (String configuredEnchantment : plugin.getConfig().getStringList(path + ".enchantments")) {
+            String[] parts = configuredEnchantment.split(":", 2);
+            if (parts.length != 2) continue;
+            try {
+                Enchantment enchantment = Enchantment.getByKey(NamespacedKey.minecraft(parts[0].toLowerCase(Locale.ROOT)));
+                if (enchantment != null) stack.addUnsafeEnchantment(enchantment, Integer.parseInt(parts[1]));
+            } catch (NumberFormatException ignored) {
+                plugin.getLogger().warning("Invalid enchantment level for shop product " + product.id() + ".");
+            }
+        }
         return stack;
     }
 
     private Component productName(ShopCatalog.Product product) {
-        String prefix = "";
-        if (isDiamondArmor(product.id())) {
-            prefix = "Common ";
-        } else if (product.section() == ShopCatalog.Section.GEAR
-            && !product.id().equals("GOLDEN_APPLE") && !product.id().equals("GOLDEN_CARROT")) {
-            prefix = "Starter ";
-        }
-        return Component.text(prefix + plainName(product.id()), NamedTextColor.GREEN, TextDecoration.BOLD);
+        return Component.text(plugin.getConfig().getString(productConfigPath(product) + ".name", defaultProductName(product)),
+            NamedTextColor.GREEN, TextDecoration.BOLD);
     }
 
     private boolean isDiamondArmor(String id) {

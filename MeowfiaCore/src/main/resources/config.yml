@@ -14,3 +14,6 @@ combat:
 shop:
   price-multiplier: 1.0
   sell-multiplier: 0.5
+scoreboard:
+  enabled: true
+  update-ticks: 40

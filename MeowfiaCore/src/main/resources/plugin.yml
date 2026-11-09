@@ -1,5 +1,5 @@
 name: MeowfiaCore
-version: 1.0.1
+version: 1.0.2
 main: dev.meowfia.MeowfiaCorePlugin
 api-version: '26.3'
 softdepend: [Vault, Multiverse-Core]
@@ -27,6 +27,7 @@ commands:
     description: Open the random teleport menu
   meowfiacore:
     description: Meowfia SMP administration
+    usage: /meowfiacore give <player> <item-id> [amount]
     permission: meowfiacore.admin
 permissions:
   meowfiacore.admin:
