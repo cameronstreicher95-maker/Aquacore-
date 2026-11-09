@@ -1,0 +1,12 @@
+enabled: true
+update-ticks: 40
+title: "&b&lAQUA &3&lSMP"
+lines:
+  - "&3&m--------------------"
+  - "&b%player%"
+  - "&fMoney: &a%money%"
+  - "&fKills: &e%kills%"
+  - "&fDeaths: &c%deaths%"
+  - "&fShards: &d%shards%"
+  - "&fOnline: &b%online%&7/&f%max_players%"
+  - "&3&m--------------------"

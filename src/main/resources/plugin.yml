@@ -1,5 +1,5 @@
 name: AquaSMP
-version: 1.0.2
+version: 1.0.3
 main: dev.aquasmp.AquaSMPPlugin
 api-version: '26.3'
 softdepend: [Vault, Multiverse-Core]
@@ -28,6 +28,9 @@ commands:
   aquasmp:
     description: Aqua SMP administration
     usage: /aquasmp give <player> <item-id> [amount]
+    permission: aquasmp.admin
+  afkz:
+    description: Give an operator the AFK zone selection wand
     permission: aquasmp.admin
 permissions:
   aquasmp.admin:

@@ -1,0 +1,12 @@
+enabled: true
+update-ticks: 40
+title: "&c&lMEOWFIA &6&lSMP"
+lines:
+  - "&4&m--------------------"
+  - "&c%player%"
+  - "&fMoney: &6%money%"
+  - "&fKills: &e%kills%"
+  - "&fDeaths: &c%deaths%"
+  - "&fShards: &6%shards%"
+  - "&fOnline: &c%online%&7/&f%max_players%"
+  - "&4&m--------------------"
