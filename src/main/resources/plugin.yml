@@ -1,0 +1,34 @@
+name: AquaSMP
+version: 1.0.0
+main: dev.aquasmp.AquaSMPPlugin
+api-version: '26.3'
+softdepend: [Vault, Multiverse-Core]
+commands:
+  shop:
+    description: Open the Aqua SMP shop
+    aliases: [aquashop]
+  sell:
+    description: Open the Aqua SMP selling menu
+  tpa:
+    description: Request to teleport to a player
+    usage: /tpa <player>
+  tpaccept:
+    description: Accept a teleport request
+  tpadeny:
+    description: Deny a teleport request
+  tpagui:
+    description: Toggle teleport request menus
+  spawn:
+    description: Teleport to spawn
+  cmdsetspawn:
+    description: Set the server spawn location
+    permission: aquasmp.admin
+  rtp:
+    description: Open the random teleport menu
+  aquasmp:
+    description: Aqua SMP administration
+    permission: aquasmp.admin
+permissions:
+  aquasmp.admin:
+    description: Manage Aqua SMP settings and shards
+    default: op
