@@ -1,0 +1,11 @@
+checks:
+  flight:
+    enabled: true
+    hover-samples: 8
+    sample-interval-ticks: 5
+  fast-place:
+    enabled: true
+    max-placements-per-second: 40
+discord:
+  webhook-url: ""
+  alert-cooldown-seconds: 15

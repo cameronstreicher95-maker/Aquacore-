@@ -29,3 +29,7 @@ All command messages use the Aqua SMP prefix. Teleports use a configurable count
 ## Configuration
 
 `config.yml` controls the teleport countdown and request expiry, RTP world names/radius/separation, combat duration, and shop/sell price multipliers. Spawn coordinates are saved by `/cmdsetspawn`.
+
+## Separate Anti-Cheat Plugin
+
+The standalone [AquaGuard plugin](AquaGuard/README.md) provides conservative server-side flight and rapid-placement checks, Discord webhook alerts, and a Paper Anti-Xray configuration template. Build it from the repository root with `gradle -p AquaGuard build`.

@@ -1,0 +1,8 @@
+name: AquaGuard
+version: 1.0.0
+main: dev.aquaguard.AquaGuardPlugin
+api-version: '26.3'
+permissions:
+  aquaguard.bypass:
+    description: Bypass AquaGuard movement and placement checks
+    default: op
