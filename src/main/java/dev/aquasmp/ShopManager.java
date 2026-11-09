@@ -97,7 +97,6 @@ public final class ShopManager implements Listener, CommandExecutor {
 
     public void openSell(Player player) {
         MenuHolder holder = create(MenuType.SELL, null, 1, 0, 54, "Aqua SMP Sell");
-        fill(holder.inventory);
         holder.inventory.setItem(4, item(Material.DISPENSER, "Drop items here", NamedTextColor.AQUA));
         refreshSellInfo(holder.inventory);
         holder.inventory.setItem(53, item(Material.BARRIER, "Close", NamedTextColor.RED));
@@ -143,13 +142,16 @@ public final class ShopManager implements Listener, CommandExecutor {
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getView().getTopInventory().getHolder(false) instanceof MenuHolder holder)) return;
-        event.setCancelled(true);
-        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            event.setCancelled(true);
+            return;
+        }
         int slot = event.getRawSlot();
         if (holder.type == MenuType.SELL) {
             handleSellClick(event, holder, player, slot);
             return;
         }
+        event.setCancelled(true);
         if (slot < 0 || slot >= holder.inventory.getSize()) return;
         switch (holder.type) {
             case ROOT -> {
@@ -177,7 +179,7 @@ public final class ShopManager implements Listener, CommandExecutor {
             return;
         }
         for (int rawSlot : event.getRawSlots()) {
-            if (rawSlot < 0 || rawSlot >= 54 || rawSlot == 4 || rawSlot >= 45) {
+            if (rawSlot >= 0 && rawSlot < 54 && (rawSlot == 4 || rawSlot >= 45)) {
                 event.setCancelled(true);
                 return;
             }
@@ -188,14 +190,23 @@ public final class ShopManager implements Listener, CommandExecutor {
     private void handleSellClick(InventoryClickEvent event, MenuHolder holder, Player player, int slot) {
         if (slot >= 54) {
             if (event.isShiftClick() && event.getCurrentItem() != null && !event.getCurrentItem().getType().isAir()) {
+                event.setCancelled(true);
                 ItemStack moving = event.getCurrentItem().clone();
                 if (depositStack(holder.inventory, moving)) {
                     event.setCurrentItem(null);
                     refreshSellInfo(holder.inventory);
                 }
+            } else {
+                event.setCancelled(false);
             }
             return;
         }
+        if (slot >= 0 && slot < 45 && slot != 4) {
+            event.setCancelled(false);
+            Bukkit.getScheduler().runTask(plugin, () -> refreshSellInfo(holder.inventory));
+            return;
+        }
+        event.setCancelled(true);
         if (slot == 4) {
             ItemStack cursor = event.getCursor();
             if (cursor != null && !cursor.getType().isAir() && depositStack(holder.inventory, cursor.clone())) {

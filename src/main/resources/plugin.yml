@@ -1,5 +1,5 @@
 name: AquaSMP
-version: 1.0.0
+version: 1.0.1
 main: dev.aquasmp.AquaSMPPlugin
 api-version: '26.3'
 softdepend: [Vault, Multiverse-Core]

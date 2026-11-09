@@ -6,7 +6,7 @@ A custom Paper survival-server plugin with a blue Aqua SMP shop, shard gear, tel
 
 - Java 25 and Gradle are required.
 - The build targets the published Paper `26.3-pre-2.build.0-alpha` API because that is the available 26.3 Maven artifact.
-- Run `gradle build`; the plugin jar is written to `build/libs/AquaSMP-1.0.0.jar`.
+- Run `gradle build`; the plugin jar is written to `build/libs/AquaSMP-1.0.1.jar`.
 
 ## Dependencies
 
