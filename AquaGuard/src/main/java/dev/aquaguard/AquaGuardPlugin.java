@@ -33,6 +33,7 @@ public final class AquaGuardPlugin extends JavaPlugin implements Listener {
     private static final class MovementState {
         private Location lastGrounded;
         private int hoverSamples;
+        private int upwardSamples;
     }
 
     private static final class PlacementWindow {
@@ -146,6 +147,7 @@ public final class AquaGuardPlugin extends JavaPlugin implements Listener {
 
     private void inspectFlight() {
         int requiredSamples = Math.max(2, getConfig().getInt("checks.flight.hover-samples", 8));
+        int requiredUpwardSamples = Math.max(2, getConfig().getInt("checks.flight.upward-samples", 6));
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (enforceSurvivalForNonOperators(player)) continue;
             if (!getConfig().getBoolean("checks.flight.enabled", true)) continue;
@@ -159,25 +161,33 @@ public final class AquaGuardPlugin extends JavaPlugin implements Listener {
             if (player.isOnGround()) {
                 state.lastGrounded = player.getLocation().clone();
                 state.hoverSamples = 0;
+                state.upwardSamples = 0;
                 continue;
             }
             if (isInLegitimateAirMovement(player)) {
                 state.hoverSamples = 0;
+                state.upwardSamples = 0;
                 continue;
             }
 
             double verticalVelocity = player.getVelocity().getY();
+            if (verticalVelocity > 0.08 && player.getFallDistance() < 0.5f) state.upwardSamples++;
+            else state.upwardSamples = 0;
             if (Math.abs(verticalVelocity) <= 0.025 && player.getFallDistance() < 0.5f) state.hoverSamples++;
             else state.hoverSamples = 0;
 
-            if (state.hoverSamples < requiredSamples) continue;
-            alert(player, "FLIGHT", "Suspicious mid-air hover was detected and corrected.");
+            boolean sustainedUpwardFlight = state.upwardSamples >= requiredUpwardSamples;
+            if (!sustainedUpwardFlight && state.hoverSamples < requiredSamples) continue;
+            alert(player, "FLIGHT", sustainedUpwardFlight
+                ? "Sustained unauthorized upward flight was blocked and corrected."
+                : "Suspicious mid-air hover was detected and corrected.");
             if (state.lastGrounded != null && state.lastGrounded.getWorld() == player.getWorld()) {
                 player.teleport(state.lastGrounded);
                 player.setVelocity(new Vector(0, 0, 0));
                 player.setFallDistance(0);
             }
             state.hoverSamples = 0;
+            state.upwardSamples = 0;
         }
     }
 
@@ -193,9 +203,9 @@ public final class AquaGuardPlugin extends JavaPlugin implements Listener {
     private boolean isExempt(Player player) {
         GameMode mode = player.getGameMode();
         return player.hasPermission("aquaguard.bypass")
+            || player.isOp()
             || mode == GameMode.CREATIVE
-            || mode == GameMode.SPECTATOR
-            || player.getAllowFlight();
+            || mode == GameMode.SPECTATOR;
     }
 
     private boolean isInLegitimateAirMovement(Player player) {

@@ -2,6 +2,7 @@ checks:
   flight:
     enabled: true
     hover-samples: 8
+    upward-samples: 6
     sample-interval-ticks: 5
   fast-place:
     enabled: true
