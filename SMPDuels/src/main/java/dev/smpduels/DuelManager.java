@@ -598,7 +598,7 @@ public final class DuelManager implements Listener, CommandExecutor {
         match.snapshots.put(target.getUniqueId(), new PlayerSnapshot(target));
         prepareFighter(sender, firstSpawn);
         prepareFighter(target, secondSpawn);
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (activeMatch != match || match.ending) return;
             Player currentSender = Bukkit.getPlayer(match.request.sender);
             Player currentTarget = Bukkit.getPlayer(match.request.target);
@@ -606,17 +606,28 @@ public final class DuelManager implements Listener, CommandExecutor {
                 failBeforeStart(match, "A duel participant disconnected while the arena was loading.");
                 return;
             }
+            if (currentSender.getWorld() != match.world || currentTarget.getWorld() != match.world) {
+                failBeforeStart(match, "A duel participant did not finish loading into the arena.");
+                return;
+            }
+            int senderKitItems = 0;
+            int targetKitItems = 0;
             if (match.request.kitName != null
-                && (!applyKit(currentSender, match.request.kitName) || !applyKit(currentTarget, match.request.kitName))) {
+                && ((senderKitItems = applyKit(currentSender, match.request.kitName)) < 1
+                    || (targetKitItems = applyKit(currentTarget, match.request.kitName)) < 1)) {
                 currentSender.sendMessage(message("The saved kit has no valid items. The duel was cancelled and your inventory restored.", NamedTextColor.RED));
                 currentTarget.sendMessage(message("The saved kit has no valid items. The duel was cancelled and your inventory restored.", NamedTextColor.RED));
                 endMatch(match, "Duel cancelled because the kit could not be loaded.");
                 return;
             }
             String borderLabel = (int) borderSize + "x" + (int) borderSize;
+            if (match.request.kitName != null) {
+                currentSender.sendActionBar(message("Kit loaded: " + senderKitItems + " items", NamedTextColor.GREEN));
+                currentTarget.sendActionBar(message("Kit loaded: " + targetKitItems + " items", NamedTextColor.GREEN));
+            }
             currentSender.sendMessage(message("Duel started. The arena border is " + borderLabel + " and will be deleted when the round ends.", NamedTextColor.GREEN));
             currentTarget.sendMessage(message("Duel started. The arena border is " + borderLabel + " and will be deleted when the round ends.", NamedTextColor.GREEN));
-        });
+        }, 5L);
     }
 
     private Location findSpawn(World world, int centerX) {
@@ -663,24 +674,31 @@ public final class DuelManager implements Listener, CommandExecutor {
         player.teleport(spawn, PlayerTeleportEvent.TeleportCause.PLUGIN);
     }
 
-    private boolean applyKit(Player player, String kitName) {
+    private int applyKit(Player player, String kitName) {
         String path = "kits." + kitName;
         PlayerInventory inventory = player.getInventory();
         ItemStack[] storage = deserializeItems(path + ".storage", inventory.getStorageContents().length);
         ItemStack[] armor = deserializeItems(path + ".armor", inventory.getArmorContents().length);
         ItemStack offhand = deserializeItem(path + ".offhand");
-        boolean hasItems = java.util.Arrays.stream(storage).anyMatch(this::hasItem)
-            || java.util.Arrays.stream(armor).anyMatch(this::hasItem) || hasItem(offhand);
-        if (!hasItems) {
+        int itemCount = countItems(storage) + countItems(armor) + (hasItem(offhand) ? 1 : 0);
+        if (itemCount == 0) {
             plugin.getLogger().warning("Duel kit " + kitName + " contains no deserializable items.");
-            return false;
+            return 0;
         }
         inventory.clear();
-        inventory.setStorageContents(storage);
+        for (int slot = 0; slot < storage.length; slot++) {
+            if (hasItem(storage[slot])) inventory.setItem(slot, storage[slot].clone());
+        }
         inventory.setArmorContents(armor);
-        inventory.setItemInOffHand(offhand == null ? new ItemStack(Material.AIR) : offhand);
+        inventory.setItemInOffHand(hasItem(offhand) ? offhand.clone() : new ItemStack(Material.AIR));
         player.updateInventory();
-        return true;
+        return itemCount;
+    }
+
+    private int countItems(ItemStack[] items) {
+        int count = 0;
+        for (ItemStack item : items) if (hasItem(item)) count += item.getAmount();
+        return count;
     }
 
     private boolean hasItem(ItemStack item) {
@@ -946,7 +964,7 @@ public final class DuelManager implements Listener, CommandExecutor {
     }
 
     private boolean isInActiveMatch(UUID playerId) {
-        return activeMatch != null && activeMatch.snapshots.containsKey(playerId);
+        return activeMatch != null && !activeMatch.ending && activeMatch.snapshots.containsKey(playerId);
     }
 
     private void fillMenu(Inventory inventory) {

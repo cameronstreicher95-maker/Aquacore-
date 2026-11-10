@@ -44,7 +44,7 @@ The standalone [AquaGuard plugin](AquaGuard/README.md) provides conservative ser
 
 ## SMP Duels
 
-[SMPDuels](SMPDuels/README.md) adds kit and own-inventory duels in temporary Multiverse arenas. Its current release is `smpduels-v1.0.1`; Multiverse-Core is required on the server.
+[SMPDuels](SMPDuels/README.md) adds kit and own-inventory duels in temporary Multiverse arenas. Its current release is `smpduels-v1.0.3`; Multiverse-Core is required on the server.
 
 ## Release Versioning
 
