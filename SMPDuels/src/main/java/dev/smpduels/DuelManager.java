@@ -596,15 +596,27 @@ public final class DuelManager implements Listener, CommandExecutor {
         Location secondSpawn = findSpawn(world, 18);
         match.snapshots.put(sender.getUniqueId(), new PlayerSnapshot(sender));
         match.snapshots.put(target.getUniqueId(), new PlayerSnapshot(target));
-        if (match.request.kitName != null) {
-            applyKit(sender, match.request.kitName);
-            applyKit(target, match.request.kitName);
-        }
         prepareFighter(sender, firstSpawn);
         prepareFighter(target, secondSpawn);
-        String borderLabel = (int) borderSize + "x" + (int) borderSize;
-        sender.sendMessage(message("Duel started. The arena border is " + borderLabel + " and will be deleted when the round ends.", NamedTextColor.GREEN));
-        target.sendMessage(message("Duel started. The arena border is " + borderLabel + " and will be deleted when the round ends.", NamedTextColor.GREEN));
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (activeMatch != match || match.ending) return;
+            Player currentSender = Bukkit.getPlayer(match.request.sender);
+            Player currentTarget = Bukkit.getPlayer(match.request.target);
+            if (currentSender == null || currentTarget == null) {
+                failBeforeStart(match, "A duel participant disconnected while the arena was loading.");
+                return;
+            }
+            if (match.request.kitName != null
+                && (!applyKit(currentSender, match.request.kitName) || !applyKit(currentTarget, match.request.kitName))) {
+                currentSender.sendMessage(message("The saved kit has no valid items. The duel was cancelled and your inventory restored.", NamedTextColor.RED));
+                currentTarget.sendMessage(message("The saved kit has no valid items. The duel was cancelled and your inventory restored.", NamedTextColor.RED));
+                endMatch(match, "Duel cancelled because the kit could not be loaded.");
+                return;
+            }
+            String borderLabel = (int) borderSize + "x" + (int) borderSize;
+            currentSender.sendMessage(message("Duel started. The arena border is " + borderLabel + " and will be deleted when the round ends.", NamedTextColor.GREEN));
+            currentTarget.sendMessage(message("Duel started. The arena border is " + borderLabel + " and will be deleted when the round ends.", NamedTextColor.GREEN));
+        });
     }
 
     private Location findSpawn(World world, int centerX) {
@@ -651,15 +663,28 @@ public final class DuelManager implements Listener, CommandExecutor {
         player.teleport(spawn, PlayerTeleportEvent.TeleportCause.PLUGIN);
     }
 
-    private void applyKit(Player player, String kitName) {
+    private boolean applyKit(Player player, String kitName) {
         String path = "kits." + kitName;
         PlayerInventory inventory = player.getInventory();
-        inventory.clear();
-        inventory.setStorageContents(deserializeItems(path + ".storage", inventory.getStorageContents().length));
-        inventory.setArmorContents(deserializeItems(path + ".armor", inventory.getArmorContents().length));
+        ItemStack[] storage = deserializeItems(path + ".storage", inventory.getStorageContents().length);
+        ItemStack[] armor = deserializeItems(path + ".armor", inventory.getArmorContents().length);
         ItemStack offhand = deserializeItem(path + ".offhand");
+        boolean hasItems = java.util.Arrays.stream(storage).anyMatch(this::hasItem)
+            || java.util.Arrays.stream(armor).anyMatch(this::hasItem) || hasItem(offhand);
+        if (!hasItems) {
+            plugin.getLogger().warning("Duel kit " + kitName + " contains no deserializable items.");
+            return false;
+        }
+        inventory.clear();
+        inventory.setStorageContents(storage);
+        inventory.setArmorContents(armor);
         inventory.setItemInOffHand(offhand == null ? new ItemStack(Material.AIR) : offhand);
         player.updateInventory();
+        return true;
+    }
+
+    private boolean hasItem(ItemStack item) {
+        return item != null && !item.getType().isAir() && item.getAmount() > 0;
     }
 
     private void failBeforeStart(DuelMatch match, String reason) {

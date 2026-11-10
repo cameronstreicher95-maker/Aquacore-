@@ -1,5 +1,5 @@
 name: SMPDuels
-version: 1.0.1
+version: 1.0.2
 main: dev.smpduels.SMPDuelsPlugin
 api-version: '26.3'
 depend: [Multiverse-Core]
