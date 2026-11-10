@@ -6,7 +6,7 @@ A separate Paper plugin for consensual duels in temporary Multiverse worlds. It 
 
 - Java 25 and Gradle are required.
 - Run `gradle -p SMPDuels build` from the repository root.
-- Install `SMPDuels/build/libs/SMPDuels-1.0.3.jar` and Multiverse-Core in the Paper server's `plugins/` directory, then restart. SMPDuels requires Multiverse-Core.
+- Install `SMPDuels/build/libs/SMPDuels-1.0.4.jar` and Multiverse-Core in the Paper server's `plugins/` directory, then restart. SMPDuels requires Multiverse-Core.
 
 ## Commands
 
@@ -19,6 +19,6 @@ Each accepted duel gets a random, uniquely named Multiverse world. Its border is
 
 For both kit and own-inventory duels, SMPDuels snapshots storage, armor, offhand, experience, health, food, effects, and flight settings before the match. On death or disconnect, participants are returned to their saved location and their pre-duel state is restored. Death drops are suppressed. Ender chests and commands are blocked during a duel, and kit items are never saved to a player's persistent inventory.
 
-Selected kits are applied five ticks after both players finish teleporting into the arena, refreshed to clients, and validated before the round starts. An empty or invalid kit cancels the duel and restores both players. Commands are unlocked as soon as the round ends, without waiting for Multiverse to finish deleting the arena.
+Selected kits are applied five ticks after both players finish teleporting into the arena, refreshed to clients, and validated before the round starts. Each player receives a `Kit loaded: N items` confirmation. An empty or invalid kit cancels the duel and restores both players. Commands are unlocked as soon as the round ends, without waiting for Multiverse to finish deleting the arena.
 
 `config.yml` controls the arena world-name prefix, border size, request expiry, and creation/cleanup timeouts. Multiverse cleanup failure keeps the duel lock active rather than creating overlapping arenas.

@@ -964,7 +964,8 @@ public final class DuelManager implements Listener, CommandExecutor {
     }
 
     private boolean isInActiveMatch(UUID playerId) {
-        return activeMatch != null && !activeMatch.ending && activeMatch.snapshots.containsKey(playerId);
+        return activeMatch != null && !activeMatch.ending && !activeMatch.finishing
+            && activeMatch.snapshots.containsKey(playerId);
     }
 
     private void fillMenu(Inventory inventory) {
